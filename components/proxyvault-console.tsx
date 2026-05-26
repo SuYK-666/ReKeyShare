@@ -29,7 +29,7 @@ import type {
   ApiUser,
   ConsoleData,
 } from "@/lib/api-types";
-import { demoSampleContent, getDemoConsoleData } from "@/lib/demo-seed";
+import { demoPerformanceRows, demoSampleContent, getDemoConsoleData } from "@/lib/demo-seed";
 import VideoBackdrop from "@/components/ui/video-backdrop";
 
 type PageKey =
@@ -63,14 +63,70 @@ const authSteps = [
   "生成 Bob 可解密密文 C_B",
 ];
 
-const API_BASE = process.env.NEXT_PUBLIC_PRE_API_BASE ?? "http://localhost:8080/api";
+const API_BASE = process.env.NEXT_PUBLIC_PRE_API_BASE ?? "/api/rekeyshare/api";
+const CONSOLE_SESSION_KEY = "rekeyshare.console.sessions.v1";
 
 function toApiAlgorithm(value: UiAlgorithm): ApiAlgorithm {
   return value === "RSA-PRE" ? "RSA_PRE" : "ECC_PRE";
 }
 
-async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
+type BackendUserResponse = {
+  userId: string;
+  role: string;
+  algorithm: ApiAlgorithm;
+  algorithmSuite?: string;
+  securityLevel?: string;
+  securityNotice?: string;
+  token: string;
+};
+
+type BackendAuditResponse = {
+  events: Array<Partial<ApiAudit> & { eventId?: string }>;
+};
+
+type ConsoleSession = {
+  algorithm: ApiAlgorithm;
+  users: Record<string, BackendUserResponse>;
+  files: ApiFile[];
+  sharedFiles: ApiShared[];
+  packages: Record<string, { packageId: string; dataId: string; recipientId: string }>;
+  decryptions: Record<string, { plaintext: string; sha256: string }>;
+};
+
+function emptySession(algorithm: ApiAlgorithm): ConsoleSession {
+  return {
+    algorithm,
+    users: {},
+    files: [],
+    sharedFiles: [],
+    packages: {},
+    decryptions: {},
+  };
+}
+
+function readStoredSession(algorithm: ApiAlgorithm): ConsoleSession {
+  if (typeof window === "undefined") {
+    return emptySession(algorithm);
+  }
+  try {
+    const sessions = JSON.parse(window.localStorage.getItem(CONSOLE_SESSION_KEY) ?? "{}") as Record<string, ConsoleSession>;
+    return sessions[algorithm] ?? emptySession(algorithm);
+  } catch {
+    return emptySession(algorithm);
+  }
+}
+
+function writeStoredSession(session: ConsoleSession) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const sessions = JSON.parse(window.localStorage.getItem(CONSOLE_SESSION_KEY) ?? "{}") as Record<string, ConsoleSession>;
+  sessions[session.algorithm] = session;
+  window.localStorage.setItem(CONSOLE_SESSION_KEY, JSON.stringify(sessions));
+}
+
+async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, { cache: "no-store", ...options });
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `request failed: ${response.status}`);
@@ -78,39 +134,94 @@ async function apiGet<T>(path: string): Promise<T> {
   return response.json();
 }
 
-async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+async function apiGet<T>(path: string, token?: string): Promise<T> {
+  return apiRequest<T>(path, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+}
+
+async function apiPost<T>(path: string, body: unknown, token?: string): Promise<T> {
+  return apiRequest<T>(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `request failed: ${response.status}`);
-  }
-  return response.json();
 }
 
 function formatTime(value: string) {
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
-async function fetchConsoleData(apiAlgorithm: ApiAlgorithm): Promise<ConsoleData> {
-  const [userRes, fileRes, sharedRes, auditRes, summaryRes, performanceRes] = await Promise.all([
-    apiGet<{ users: ApiUser[] }>(`/${apiAlgorithm}/users`),
-    apiGet<{ files: ApiFile[] }>(`/${apiAlgorithm}/files`),
-    apiGet<{ shared: ApiShared[] }>(`/${apiAlgorithm}/shared?recipientId=Bob`),
-    apiGet<{ events: ApiAudit[] }>(`/${apiAlgorithm}/audit`),
-    apiGet<{ summary: ApiSummary }>(`/${apiAlgorithm}/summary`),
-    apiGet<{ rows: ApiPerformance[] }>(`/performance`),
-  ]);
+async function sha256Hex(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function toConsoleUser(user: BackendUserResponse): ApiUser {
   return {
-    users: userRes.users,
-    files: fileRes.files,
-    sharedFiles: sharedRes.shared,
-    auditEvents: auditRes.events,
-    summary: summaryRes.summary,
-    performanceRows: performanceRes.rows,
+    userId: user.userId,
+    role: user.role,
+    algorithm: user.algorithm,
+    publicKey: user.algorithmSuite ?? user.algorithm,
+    privateKeyStatus: user.securityLevel ?? "demo token",
+  };
+}
+
+function normalizeAudit(events: BackendAuditResponse["events"]): ApiAudit[] {
+  return events.map((event) => ({
+    timestamp: event.timestamp ?? new Date().toISOString(),
+    actor: event.actor ?? "system",
+    action: event.action ?? "UNKNOWN",
+    target: event.target ?? event.eventId ?? "-",
+    success: event.success ?? true,
+    message: event.message ?? "",
+  }));
+}
+
+function makeSummary(session: ConsoleSession, auditEvents: ApiAudit[]): ApiSummary {
+  return {
+    uploads: session.files.length,
+    authorizations: session.sharedFiles.length,
+    reEncryptions: Object.keys(session.packages).length,
+    decryptions: Object.keys(session.decryptions).length,
+    users: Object.keys(session.users).length,
+    sharedPackages: Object.keys(session.packages).length,
+  };
+}
+
+async function ensureUser(session: ConsoleSession, userId: string, role: "OWNER" | "RECIPIENT" | "PROXY" | "ADMIN") {
+  if (session.users[userId]) {
+    return session.users[userId];
+  }
+  const user = await apiPost<BackendUserResponse>("/users", {
+    userId,
+    role,
+    algorithm: session.algorithm,
+  });
+  session.users[userId] = user;
+  writeStoredSession(session);
+  return user;
+}
+
+async function fetchConsoleData(apiAlgorithm: ApiAlgorithm): Promise<ConsoleData> {
+  const session = readStoredSession(apiAlgorithm);
+  const admin = await ensureUser(session, "admin", "ADMIN");
+  const auditRes = await apiGet<BackendAuditResponse>("/audit/events", admin.token);
+  const auditEvents = normalizeAudit(auditRes.events);
+
+  return {
+    users: Object.values(session.users).map(toConsoleUser),
+    files: session.files,
+    sharedFiles: session.sharedFiles,
+    auditEvents,
+    summary: makeSummary(session, auditEvents),
+    performanceRows: demoPerformanceRows,
   };
 }
 
@@ -228,7 +339,9 @@ function ProxyVaultConsole() {
 
   async function handleCreateUser() {
     try {
-      await apiPost(`/${apiAlgorithm}/users`, { userId: newUserId });
+      const session = readStoredSession(apiAlgorithm);
+      const role = newUserId.toLowerCase() === "alice" ? "OWNER" : newUserId.toLowerCase() === "proxy" ? "PROXY" : "RECIPIENT";
+      await ensureUser(session, newUserId, role);
       setStatusMessage(`已创建用户 ${newUserId}`);
       await refreshData();
     } catch (error) {
@@ -238,11 +351,29 @@ function ProxyVaultConsole() {
 
   async function handleUpload() {
     try {
-      await apiPost(`/${apiAlgorithm}/files`, {
-        ownerId: uploadOwnerId,
+      const session = readStoredSession(apiAlgorithm);
+      const owner = await ensureUser(session, uploadOwnerId, "OWNER");
+      const response = await apiPost<{ dataId: string; ciphertextHash?: string }>(
+        "/data/upload",
+        {
+          algorithm: apiAlgorithm,
+          plaintext: uploadContent,
+          fileName: selectedFile,
+        },
+        owner.token,
+      );
+      const file: ApiFile = {
+        dataId: response.dataId,
         fileName: selectedFile,
-        content: uploadContent,
-      });
+        ownerId: uploadOwnerId,
+        algorithm: apiAlgorithm,
+        cipherSize: Math.max(uploadContent.length + 96, 128),
+        plaintextSize: uploadContent.length,
+        createdAt: new Date().toISOString(),
+        hashPreview: response.ciphertextHash ? `${response.ciphertextHash.slice(0, 16)}...` : `${(await sha256Hex(uploadContent)).slice(0, 16)}...`,
+      };
+      session.files = [...session.files, file];
+      writeStoredSession(session);
       setStatusMessage(`已上传并加密 ${selectedFile}`);
       await refreshData();
     } catch (error) {
@@ -257,11 +388,58 @@ function ProxyVaultConsole() {
       return;
     }
     try {
-      await apiPost(`/${apiAlgorithm}/authorize`, {
-        ownerId: latestFile.ownerId,
-        recipientId: authRecipientId,
+      const session = readStoredSession(apiAlgorithm);
+      const owner = await ensureUser(session, latestFile.ownerId, "OWNER");
+      const recipient = await ensureUser(session, authRecipientId, "RECIPIENT");
+      const proxy = await ensureUser(session, "proxy", "PROXY");
+
+      let grantResponse: { grantId: string };
+      if (apiAlgorithm === "ECC_PRE") {
+        const rekeySession = await apiPost<{ sessionId: string }>(
+          "/rekey-sessions",
+          { dataId: latestFile.dataId, recipientId: authRecipientId },
+          owner.token,
+        );
+        await apiPost(
+          `/rekey-sessions/${rekeySession.sessionId}/recipient-share-demo`,
+          {},
+          recipient.token,
+        );
+        grantResponse = await apiPost<{ grantId: string }>(
+          "/grants/ecc",
+          { dataId: latestFile.dataId, recipientId: authRecipientId, sessionId: rekeySession.sessionId },
+          owner.token,
+        );
+      } else {
+        grantResponse = await apiPost<{ grantId: string }>(
+          "/grants",
+          { dataId: latestFile.dataId, recipientId: authRecipientId, maxAccessCount: 5 },
+          owner.token,
+        );
+      }
+
+      const packageResponse = await apiPost<{ packageId: string }>(
+        "/proxy/re-encrypt",
+        { grantId: grantResponse.grantId },
+        proxy.token,
+      );
+      session.packages[latestFile.dataId] = {
+        packageId: packageResponse.packageId,
         dataId: latestFile.dataId,
-      });
+        recipientId: authRecipientId,
+      };
+      session.sharedFiles = [
+        ...session.sharedFiles.filter((shared) => shared.dataId !== latestFile.dataId),
+        {
+          dataId: latestFile.dataId,
+          ownerId: latestFile.ownerId,
+          recipientId: authRecipientId,
+          algorithm: apiAlgorithm,
+          authorizedAt: new Date().toISOString(),
+          status: "可下载密文包",
+        },
+      ];
+      writeStoredSession(session);
       setStatusMessage(`已授权 ${authRecipientId} 访问 ${latestFile.fileName}`);
       setAuthStep(4);
       await refreshData();
@@ -272,16 +450,24 @@ function ProxyVaultConsole() {
 
   async function handleDecrypt(recipientId: string, dataId: string) {
     try {
-      const response = await apiPost<{ result: { success: boolean; plaintext: string; sha256: string } }>(
-        `/${apiAlgorithm}/decrypt`,
-        {
-          kind: "shared",
-          userId: recipientId,
-          recipientId,
-          dataId,
-        },
+      const session = readStoredSession(apiAlgorithm);
+      const recipient = await ensureUser(session, recipientId, "RECIPIENT");
+      const sharedPackage = session.packages[dataId];
+      if (!sharedPackage) {
+        throw new Error("未找到共享密文包，请先完成授权重加密");
+      }
+      const response = await apiGet<{ plaintext: string }>(
+        `/demo/shared-packages/${sharedPackage.packageId}/decrypt`,
+        recipient.token,
       );
-      setDecryptResult(response.result);
+      const result = {
+        success: true,
+        plaintext: response.plaintext,
+        sha256: await sha256Hex(response.plaintext),
+      };
+      session.decryptions[dataId] = { plaintext: result.plaintext, sha256: result.sha256 };
+      writeStoredSession(session);
+      setDecryptResult(result);
       setStatusMessage(`用户 ${recipientId} 已完成解密`);
       await refreshData();
     } catch (error) {
@@ -404,7 +590,7 @@ function ProxyVaultConsole() {
           <div className="p-5 lg:p-6">
             {usingDemoData ? (
               <div className="mb-5 rounded-3xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900">
-                当前展示本地演示数据（Alice / Bob / Charlie、sample-data.txt、审计记录与性能基准）。启动 Java API 后会自动切换为实时数据。
+                当前展示本地演示数据（Alice / Bob / Charlie、sample-data.txt、审计记录与性能基准）。启动 Java API 的 demo profile 后会自动切换为实时数据。
               </div>
             ) : null}
             {backendError ? (
