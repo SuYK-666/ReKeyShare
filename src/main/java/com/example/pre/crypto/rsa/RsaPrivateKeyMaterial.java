@@ -1,0 +1,15 @@
+package com.example.pre.crypto.rsa;
+
+import com.example.pre.crypto.PrivateKeyMaterial;
+
+import java.math.BigInteger;
+
+public record RsaPrivateKeyMaterial(
+        BigInteger modulus,
+        BigInteger privateExponent
+) implements PrivateKeyMaterial {
+    @Override
+    public String toString() {
+        return "RsaPrivateKeyMaterial[<redacted>]";
+    }
+}
