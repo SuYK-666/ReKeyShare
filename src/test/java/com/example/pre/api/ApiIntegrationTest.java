@@ -1,6 +1,7 @@
 package com.example.pre.api;
 
 import com.example.pre.app.ReKeyShareApplication;
+import com.example.pre.app.RuntimeProfile;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -58,6 +59,10 @@ class ApiIntegrationTest {
 
             HttpResponse<String> charlieDownload = get(base + "/api/shared-packages/" + packageId, charlieToken);
             assertEquals(403, charlieDownload.statusCode());
+            HttpResponse<String> missingPackage = get(base + "/api/shared-packages/not-a-package", charlieToken);
+            assertEquals(charlieDownload.statusCode(), missingPackage.statusCode());
+            assertTrue(charlieDownload.body().contains("ACCESS_DENIED"));
+            assertTrue(missingPackage.body().contains("ACCESS_DENIED"));
         } finally {
             server.stop();
         }
@@ -227,6 +232,24 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void formalUploadDoesNotAcceptTenantFromRequestBody() throws Exception {
+        ReKeyShareApplication.RunningServer server = ReKeyShareApplication.start(0);
+        try {
+            String base = "http://localhost:" + server.port();
+            String token = field(post(base + "/api/users", "",
+                    "userId=TenantOwner&role=OWNER&algorithm=SECURE_ENVELOPE").body(), "token");
+            HttpResponse<String> upload = post(base + "/api/data/upload-encrypted", token,
+                    "algorithm=SECURE_ENVELOPE&dataId=data-a&tenantId=attacker-tenant"
+                            + "&encryptedContent=Y2lwaGVy&contentNonce=bm9uY2Utbm9uY2U="
+                            + "&capsuleHeader=aGVhZGVy&wrappedKey=d3JhcHBlZA==&keyNonce=bm9uY2Utbm9uY2U=");
+            assertTrue(upload.statusCode() == 201 || upload.statusCode() == 400);
+            assertTrue(!upload.body().contains("attacker-tenant"));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
     void concurrentDownloadsCannotExceedAccessLimit() throws Exception {
         ReKeyShareApplication.RunningServer server = ReKeyShareApplication.startDemo(0);
         try {
@@ -340,6 +363,74 @@ class ApiIntegrationTest {
             assertEquals(404, get(base + "/api/no-such-endpoint", adminToken).statusCode());
         } finally {
             server.stop();
+        }
+    }
+
+    @Test
+    void auditorCanVerifyButCannotPerformProxyAdministration() throws Exception {
+        ReKeyShareApplication.RunningServer server = ReKeyShareApplication.startDemo(0);
+        try {
+            String base = "http://localhost:" + server.port();
+            String auditorToken = createUser(base, "auditor", "AUDITOR", "RSA_PRE");
+            assertEquals(200, get(base + "/api/audit/verify", auditorToken).statusCode());
+            assertEquals(403, post(base + "/api/proxy-nodes", auditorToken,
+                    "proxyId=forbidden&allowedSchemeIds=RSA_PRE&quota=1").statusCode());
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void secureLocalPersistsAuditAndIdempotencyAcrossHttpRestart() throws Exception {
+        String priorUrl = System.getProperty("rekeyshare.local.jdbcUrl");
+        String priorSecret = System.getProperty("rekeyshare.local.tokenSecret");
+        java.nio.file.Path db = java.nio.file.Path.of("target", "jdbc-test",
+                "secure-local-http-" + java.util.UUID.randomUUID());
+        System.setProperty("rekeyshare.local.jdbcUrl", "jdbc:h2:file:" + db.toAbsolutePath() + ";DB_CLOSE_DELAY=0");
+        System.setProperty("rekeyshare.local.tokenSecret", "secure-local-test-signing-secret");
+        String firstBody;
+        String adminToken;
+        try {
+            ReKeyShareApplication.RunningServer first = ReKeyShareApplication.start(0, RuntimeProfile.SECURE_LOCAL);
+            try {
+                String base = "http://localhost:" + first.port();
+                HttpResponse<String> created = postIdempotent(base + "/api/users", "",
+                        "userId=admin&role=ADMIN&algorithm=SECURE_ENVELOPE", "create-admin");
+                assertEquals(201, created.statusCode());
+                firstBody = created.body();
+                adminToken = field(created.body(), "token");
+                assertTrue(get(base + "/api/audit/verify", adminToken).body().contains("\"valid\":true"));
+            } finally {
+                first.stop();
+            }
+            ReKeyShareApplication.RunningServer restarted = ReKeyShareApplication.start(0, RuntimeProfile.SECURE_LOCAL);
+            try {
+                String base = "http://localhost:" + restarted.port();
+                HttpResponse<String> replay = postIdempotent(base + "/api/users", "",
+                        "userId=admin&role=ADMIN&algorithm=SECURE_ENVELOPE", "create-admin");
+                assertEquals(201, replay.statusCode());
+                assertEquals(firstBody, replay.body());
+                assertTrue(get(base + "/api/audit/verify", adminToken).body().contains("\"valid\":true"));
+                assertTrue(get(base + "/api/storage/status", adminToken).body().contains("secure-local:h2-audit+replay+idempotency"));
+            } finally {
+                restarted.stop();
+            }
+        } finally {
+            if (priorUrl == null) System.clearProperty("rekeyshare.local.jdbcUrl"); else System.setProperty("rekeyshare.local.jdbcUrl", priorUrl);
+            if (priorSecret == null) System.clearProperty("rekeyshare.local.tokenSecret"); else System.setProperty("rekeyshare.local.tokenSecret", priorSecret);
+        }
+    }
+
+    @Test
+    void secureLocalFailsFastWithoutConfiguredTokenSecret() {
+        String priorSecret = System.getProperty("rekeyshare.local.tokenSecret");
+        try {
+            System.clearProperty("rekeyshare.local.tokenSecret");
+            assertTrue(org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> ReKeyShareApplication.start(0, RuntimeProfile.SECURE_LOCAL))
+                    .getMessage().contains("tokenSecret"));
+        } finally {
+            if (priorSecret == null) System.clearProperty("rekeyshare.local.tokenSecret"); else System.setProperty("rekeyshare.local.tokenSecret", priorSecret);
         }
     }
 

@@ -37,9 +37,9 @@ public final class JdbcAuditRepository implements AuditRepository {
                 insert into audit_events (
                     event_id, timestamp_utc, actor, actor_role, action, target_type, target_id,
                     success, message, request_id, trace_id, source_ip, user_agent, error_code,
-                    failure_reason, algorithm, data_id, grant_id, package_id, detail_json,
+                    failure_reason, algorithm, data_id, grant_id, package_id, tenant_id, detail_json,
                     previous_hash, event_hash
-                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (Connection connection = connection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -55,7 +55,7 @@ public final class JdbcAuditRepository implements AuditRepository {
         String sql = """
                 select event_id, timestamp_utc, actor, actor_role, action, target_type, target_id,
                        success, message, request_id, trace_id, source_ip, user_agent, error_code,
-                       failure_reason, algorithm, data_id, grant_id, package_id, detail_json,
+                       failure_reason, algorithm, data_id, grant_id, package_id, tenant_id, detail_json,
                        previous_hash, event_hash
                   from audit_events
                  order by sequence asc
@@ -96,6 +96,7 @@ public final class JdbcAuditRepository implements AuditRepository {
                     data_id varchar(128) not null,
                     grant_id varchar(128) not null,
                     package_id varchar(128) not null,
+                    tenant_id varchar(128) not null,
                     detail_json clob not null,
                     previous_hash varchar(128) not null,
                     event_hash varchar(128) not null
@@ -133,9 +134,10 @@ public final class JdbcAuditRepository implements AuditRepository {
         statement.setString(17, event.dataId());
         statement.setString(18, event.grantId());
         statement.setString(19, event.packageId());
-        statement.setString(20, event.detailJson());
-        statement.setString(21, event.previousHash());
-        statement.setString(22, event.eventHash());
+        statement.setString(20, event.tenantId());
+        statement.setString(21, event.detailJson());
+        statement.setString(22, event.previousHash());
+        statement.setString(23, event.eventHash());
     }
 
     private static AuditEvent read(ResultSet rs) throws SQLException {
@@ -159,6 +161,7 @@ public final class JdbcAuditRepository implements AuditRepository {
                 rs.getString("data_id"),
                 rs.getString("grant_id"),
                 rs.getString("package_id"),
+                rs.getString("tenant_id"),
                 rs.getString("detail_json"),
                 rs.getString("previous_hash"),
                 rs.getString("event_hash")

@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.sql.DriverManager;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -61,6 +62,40 @@ class JdbcGovernanceRepositoryTest {
         assertEquals("ACTIVE", restarted.snapshot(
                 "tenant-b", fixture.grant().grantId(), fixture.dataPackage().packageId()).packageStatus());
         assertFalse(restarted.consumeGrantAccess("tenant-c", fixture.grant().grantId()));
+        Fixture limitedActions = fixture(1);
+        first.saveWorkflow("tenant-actions", limitedActions.owner(), limitedActions.recipient(), limitedActions.data(),
+                limitedActions.grant(), limitedActions.dataPackage());
+        var actionExecutor = Executors.newFixedThreadPool(20);
+        try {
+            var downloadResults = new ArrayList<Future<Boolean>>();
+            var transformResults = new ArrayList<Future<Boolean>>();
+            for (int index = 0; index < 100; index++) {
+                downloadResults.add(actionExecutor.submit(() -> restarted.consumeGrantDownload("tenant-actions",
+                        limitedActions.grant().grantId())));
+                transformResults.add(actionExecutor.submit(() -> restarted.consumeGrantReEncrypt("tenant-actions",
+                        limitedActions.grant().grantId())));
+            }
+            assertEquals(1, accepted(downloadResults));
+            assertEquals(1, accepted(transformResults));
+        } finally {
+            actionExecutor.shutdownNow();
+        }
+        try (var connection = DriverManager.getConnection(url, "sa", "");
+             var statement = connection.prepareStatement("select count(*) from schema_migrations");
+             var result = statement.executeQuery()) {
+            result.next();
+            assertEquals(2, result.getInt(1));
+        }
+    }
+
+    private static int accepted(ArrayList<Future<Boolean>> results) throws Exception {
+        int accepted = 0;
+        for (Future<Boolean> result : results) {
+            if (result.get()) {
+                accepted++;
+            }
+        }
+        return accepted;
     }
 
     private static Fixture fixture(int maxAccess) {

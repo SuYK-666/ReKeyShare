@@ -1,31 +1,43 @@
 # API Error Model
 
-所有错误响应采用统一追踪字段：
+All HTTP errors use a stable traceable response shape:
 
 ```json
 {
   "success": false,
   "errorCode": "GRANT_REVOKED",
   "code": "GRANT_REVOKED",
-  "message": "grant revoked",
+  "message": "GRANT_REVOKED",
   "traceId": "req-...",
   "requestId": "req-...",
   "eventId": "err-...",
-  "timestamp": "2026-05-26T00:00:00Z"
+  "timestamp": "2026-05-27T00:00:00Z"
 }
 ```
 
-`code`/`requestId` 为向后兼容字段。无 token 返回 401；畸形输入和 package
-完整性错误返回 400；授权/策略/代理拒绝返回 403；限流返回 429。
-未处理异常只返回通用 `internal server error`，不泄露内部细节。
+`code` and `requestId` remain compatibility fields. Missing authentication is
+`401`; malformed input and integrity format failures are `400`; authorization
+and policy decisions are `403`; rate limiting is `429`. Unexpected exceptions
+return only a generic internal error response.
 
-新增安全错误码：
+## Object Enumeration Boundary
+
+An HTTP caller cannot distinguish an existing-but-unauthorized data, grant or
+package identifier from a guessed identifier. Both are mapped to external
+`ACCESS_DENIED` with message `object is not accessible`. Internal service
+decisions and audit records retain precise reasons for operator investigation.
+
+`ApiIntegrationTest.apiSupportsManagedSharingFlowAndBlocksPackageIdGuessing`
+asserts the package response class equivalence.
+
+## Security Codes
 
 | Code | Meaning |
 | --- | --- |
-| `CRYPTO_PROFILE_NOT_ALLOWED` | profile 禁止 baseline/不匹配 suite |
-| `CRYPTO_CONTEXT_MISMATCH` | 上传 AAD 与 canonical envelope context 不匹配 |
-| `PROOF_INVALID` | conversion proof 缺失、篡改、过期或 signer 不可信 |
-| `THRESHOLD_NOT_REACHED` | 合法 share 数不足阈值 |
-| `THRESHOLD_SHARE_INVALID` | share proof 或代理签名无效 |
-| `IDEMPOTENCY_CONFLICT` | 相同 key 被用于不同请求体 |
+| `ACCESS_DENIED` | Caller is not allowed to access an object, or object visibility is hidden |
+| `CRYPTO_PROFILE_NOT_ALLOWED` | Active profile forbids the requested suite |
+| `CRYPTO_CONTEXT_MISMATCH` | Uploaded AAD differs from canonical context |
+| `PROOF_INVALID` | Formal proof is missing, tampered, expired or untrusted |
+| `THRESHOLD_NOT_REACHED` | Insufficient valid signed shares |
+| `THRESHOLD_SHARE_INVALID` | Share context or signature is invalid |
+| `IDEMPOTENCY_CONFLICT` | One key was reused with a different request body |

@@ -1,0 +1,3 @@
+[
+  {"experimentId":"ATTACK-MATRIX","caseId":"AT-34","requirementId":"R-THRESHOLD-001","mutatedField":"shareCount","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"THRESHOLD_NOT_REACHED","internalAuditReason":"INSUFFICIENT_QUORUM","auditEventId":"audit-AT-34","evidencePath":"docs/reports/attack-matrix/raw/AT-34.json","passed":true}
+]

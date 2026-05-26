@@ -1,10 +1,20 @@
 # Key Lifecycle
 
-领域模型保存 key id、fingerprint、purpose、version 与状态；production 用户注册以
-`registerPublicOnlyUser` 落库，repository 内 private key 为 `null`。
-production 不提供服务端 key rotation 或 demo recipient-share 路径。
-Owner-side rotation 提升 content key version，并使旧活动授权失效。
+Production user registration stores only public metadata; services must not
+read user private keys. `KeyManagementProvider` defines the replaceable
+service-side signing and key-wrapping boundary.
 
-Demo 内的 `DemoPrivateKeyStore` 只用于在同一进程中验证接收方解密正确性，
-不属于 production custody 模型。生产部署应由客户端或 KMS/HSM 保管私钥
-和托管签名材料。
+`LocalKeyManagementProvider` is the `secure-local` implementation. It supports:
+
+- Ed25519 signing and verification by `keyId`;
+- AES-256-GCM wrapping and unwrapping bound to caller-provided AAD;
+- key rotation with fresh key material;
+- revocation that blocks new signing and wrapping;
+- restart recovery from a local provider file.
+
+`LocalKeyManagementProviderTest` verifies rotation, signing, wrapping, wrong
+AAD rejection, restart recovery and post-revocation signing refusal.
+
+The local provider file is explicitly not production custody. Production must
+replace it with a KMS/HSM implementation of the same provider boundary and
+publish trusted verification keys according to operational policy.

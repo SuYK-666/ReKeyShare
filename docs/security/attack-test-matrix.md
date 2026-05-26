@@ -40,3 +40,8 @@ class when one automated scenario makes several independent mutations.
 | AT-33 | Threshold short quorum / rekey | t-of-n combine | `ThresholdReEncryptionServiceTest` | `THRESHOLD_NOT_REACHED` | experimental construction |
 | AT-34 | Threshold forged share / rekey | share signature | `ThresholdReEncryptionServiceTest` | `THRESHOLD_SHARE_INVALID` | colluding quorum remains trusted |
 | AT-35 | ECC proxy-recipient collusion / owner key | baseline labeling | `EccCollusionBoundaryTest` | risk demonstrated | prohibited in production |
+| AT-36 | Threshold wrong context / transcript | signed context | `ThresholdContextBindingTest` | `THRESHOLD_SHARE_INVALID` | experimental construction |
+| AT-37 | Audit action edit / event | hash chain | `AuditHashChainTest` | chain invalid | external anchor deployment scoped |
+| AT-38 | Audit tenant replacement / event | tenant in hash chain | `AuditHashChainTest` | chain invalid | scoped query auth remains runtime wiring |
+| AT-39 | Package identifier oracle / API | external error mapping | `ApiIntegrationTest` | `ACCESS_DENIED` | timing analysis not claimed |
+| AT-40 | Proof replay after restart / proof | JDBC unique replay key | `JdbcProofReplayRepositoryTest` | replay rejected | HTTP durable wiring pending |

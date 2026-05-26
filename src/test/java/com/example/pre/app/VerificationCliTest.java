@@ -14,7 +14,11 @@ class VerificationCliTest {
         for (String[] command : new String[][]{
                 {"crypto", "verify-envelope"},
                 {"audit", "verify"},
-                {"attack-matrix", "check"}
+                {"attack-matrix", "check"},
+                {"verify-package"},
+                {"verify-proof"},
+                {"verify-audit"},
+                {"verify-threshold"}
         }) {
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             assertEquals(0, VerificationCli.run(command, new PrintStream(output)));

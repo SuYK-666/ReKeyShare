@@ -3,6 +3,8 @@ package com.example.pre.service;
 import com.example.pre.crypto.ecc.EccPreScheme;
 import com.example.pre.model.AccessPolicy;
 import com.example.pre.model.ConversionProof;
+import com.example.pre.model.AlgorithmType;
+import com.example.pre.model.UserRole;
 import com.example.pre.storage.InMemoryAuditRepository;
 import com.example.pre.storage.InMemoryDataRepository;
 import com.example.pre.storage.InMemoryGrantRepository;
@@ -12,6 +14,7 @@ import com.example.pre.util.Bytes;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,8 +32,13 @@ class ConversionProofServiceTest {
         DataSecurityService data = new DataSecurityService(scheme, dataRepository, audit);
         AuthorizationService authz = new AuthorizationService(scheme, audit, grants);
         ObjectAuthorizationService objects = new ObjectAuthorizationService(dataRepository, grants, packages, audit);
-        ConversionProofService proofs = new ConversionProofService();
-        ProxyReEncryptionService proxy = new ProxyReEncryptionService(scheme, dataRepository, grants, packages, objects, audit, proofs);
+        ConversionProofService proofs = new ConversionProofService(
+                new com.example.pre.crypto.proof.InMemoryProxySigningKeyRegistry(),
+                new com.example.pre.storage.InMemoryProofReplayRepository(), audit);
+        ProxyNodeService proxyNodes = new ProxyNodeService(audit);
+        proxyNodes.register("admin", "proxy", "fixture", Set.of("demo"), Set.of(AlgorithmType.ECC_PRE), 1);
+        ProxyReEncryptionService proxy = new ProxyReEncryptionService(scheme, dataRepository, grants, packages,
+                objects, audit, proofs, proxyNodes);
         var alice = users.createUser("Alice");
         var bob = users.createUser("Bob");
         var uploaded = data.upload(alice, Bytes.utf8("proof-bound-data"));
@@ -38,9 +46,13 @@ class ConversionProofServiceTest {
         var share = DemoPrivateKeyStore.createEccRecipientShareLocally(bob, session);
         var grant = authz.createGrantWithRecipientShare(alice, bob, uploaded,
                 AccessPolicy.normal(Instant.now().plusSeconds(300)), share, session);
-        var issued = proxy.reEncrypt("proxy", grant.grantId());
+        var issued = proxy.reEncrypt(new SecurityContext("proxy", UserRole.PROXY, "demo", "fixture",
+                Instant.now().minusSeconds(1).getEpochSecond(), Instant.now().plusSeconds(60).getEpochSecond()),
+                grant.grantId());
 
         assertTrue(proofs.verifyTrusted(issued.conversionProof(), issued, grant, Instant.now()));
+        assertFalse(proofs.verifyTrusted(issued.conversionProof(), issued, grant, Instant.now()));
+        assertTrue(audit.findAll().stream().anyMatch(event -> "PROOF_REPLAY".equals(event.message())));
         assertTrue(audit.findAll().stream().anyMatch(event -> event.message().startsWith("proofDigest=")));
 
         ConversionProof proof = issued.conversionProof();
@@ -48,5 +60,11 @@ class ConversionProofServiceTest {
                 proof.grantDigest(), proof.capsuleDigest(), proof.packageDigest(), proof.proxyId(), proof.issuedAt(),
                 proof.nonce(), proof.signatureAlgorithm(), proof.publicKey(), proof.signature());
         assertFalse(proofs.verifyTrusted(tampered, issued.withConversionProof(tampered), grant, Instant.now()));
+
+        ConversionProof tenantProof = proofs.issue(issued, grant, "proxy", "tenant-a");
+        assertFalse(proofs.verifyTrusted(tenantProof, issued.withConversionProof(tenantProof), grant,
+                "tenant-b", Instant.now()));
+        assertTrue(proofs.verifyTrusted(tenantProof, issued.withConversionProof(tenantProof), grant,
+                "tenant-a", Instant.now()));
     }
 }

@@ -4,5 +4,7 @@ public enum UserRole {
     OWNER,
     RECIPIENT,
     PROXY,
-    ADMIN
+    ADMIN,
+    AUDITOR,
+    KEY_ADMIN
 }

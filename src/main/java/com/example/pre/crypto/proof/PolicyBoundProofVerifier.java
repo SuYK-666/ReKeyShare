@@ -1,5 +1,7 @@
 package com.example.pre.crypto.proof;
 
+import com.example.pre.storage.ProofReplayRepository;
+
 import java.security.GeneralSecurityException;
 import java.security.Signature;
 import java.time.Instant;
@@ -12,12 +14,12 @@ public final class PolicyBoundProofVerifier {
     }
 
     private final ProxySigningKeyRegistry keys;
-    private final ProofReplayRegistry replayRegistry;
+    private final ProofReplayRepository replayRepository;
     private final ProofPayloadCanonicalizer canonicalizer = new ProofPayloadCanonicalizer();
 
-    public PolicyBoundProofVerifier(ProxySigningKeyRegistry keys, ProofReplayRegistry replayRegistry) {
+    public PolicyBoundProofVerifier(ProxySigningKeyRegistry keys, ProofReplayRepository replayRepository) {
         this.keys = keys;
-        this.replayRegistry = replayRegistry;
+        this.replayRepository = replayRepository;
     }
 
     public Decision verify(PolicyBoundConversionProof proof, Instant now, boolean consumeNonce) {
@@ -53,7 +55,8 @@ public final class PolicyBoundProofVerifier {
         } catch (GeneralSecurityException | IllegalArgumentException e) {
             return Decision.PROOF_SIGNATURE_INVALID;
         }
-        if (consumeNonce && !replayRegistry.register(proof.proofNonce(), proof.canonicalPayloadHash())) {
+        if (consumeNonce && !replayRepository.consume(proof.tenantId(), proof.proxyId(), proof.keyId(),
+                proof.keyEpoch(), proof.proofNonce(), proof.canonicalPayloadHash(), proof.expiresAt())) {
             return Decision.PROOF_REPLAY_DETECTED;
         }
         return Decision.ACCEPT;

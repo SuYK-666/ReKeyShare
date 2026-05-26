@@ -1,0 +1,3 @@
+[
+  {"experimentId":"ATTACK-MATRIX","caseId":"AT-40","requirementId":"R-PROFILE-001","mutatedField":"algorithmSuite","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"CRYPTO_PROFILE_NOT_ALLOWED","internalAuditReason":"PROFILE_REJECTED","auditEventId":"audit-AT-40","evidencePath":"docs/reports/attack-matrix/raw/AT-40.json","passed":true}
+]

@@ -1,0 +1,3 @@
+[
+  {"experimentId":"ATTACK-MATRIX","caseId":"AT-31","requirementId":"R-AAD-001","mutatedField":"aad","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"AAD_MISMATCH","internalAuditReason":"AAD_HASH_MISMATCH","auditEventId":"audit-AT-31","evidencePath":"docs/reports/attack-matrix/raw/AT-31.json","passed":true}
+]

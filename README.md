@@ -1,5 +1,20 @@
 # ReKeyShare
 
+## Second Iteration Status
+
+The 2026-05-27 measured iteration adds persistent proof replay consumption
+adapters, formal-proof tenant binding from `SecurityContext`, service-layer
+proxy admission enforcement, tenant-aware audit hashing/query support,
+object-enumeration-safe external errors and a bounded HTTP executor.
+
+Verification evidence and the remaining non-claimed runtime work are recorded
+in [docs/reports/SECOND_ITERATION_REPORT.md](docs/reports/SECOND_ITERATION_REPORT.md).
+Formal replay semantics are authoritative in
+[docs/security/proof-replay.md](docs/security/proof-replay.md).
+The authoritative documentation scopes are listed in
+[docs/doc-index.md](docs/doc-index.md); terminology is defined in
+[docs/glossary.md](docs/glossary.md).
+
 > 面向半可信云存储与代理节点的数据安全共享系统原型。
 
 [![Commit](https://img.shields.io/github/last-commit/SuYK-666/ReKeyShare/main)](https://github.com/SuYK-666/ReKeyShare/commits/main)

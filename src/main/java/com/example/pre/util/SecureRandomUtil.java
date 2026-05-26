@@ -2,6 +2,7 @@ package com.example.pre.util;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
+import java.util.Base64;
 
 public final class SecureRandomUtil {
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -26,5 +27,9 @@ public final class SecureRandomUtil {
 
     public static SecureRandom random() {
         return RANDOM;
+    }
+
+    public static String randomId() {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes(16));
     }
 }

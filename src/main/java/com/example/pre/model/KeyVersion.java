@@ -4,7 +4,7 @@ import com.example.pre.crypto.PublicKeyMaterial;
 import com.example.pre.crypto.hash.Hash;
 
 import java.time.Instant;
-import java.util.UUID;
+import com.example.pre.util.SecureRandomUtil;
 
 public record KeyVersion(
         String keyId,
@@ -24,7 +24,7 @@ public record KeyVersion(
 ) {
     public static KeyVersion active(String userId, AlgorithmType algorithm, int version, PublicKeyMaterial publicKey) {
         Instant now = Instant.now();
-        return new KeyVersion(UUID.randomUUID().toString(), userId, algorithm, version, KeyPurpose.PRE_ENCAPSULATION,
+        return new KeyVersion(SecureRandomUtil.randomId(), userId, algorithm, version, KeyPurpose.PRE_ENCAPSULATION,
                 publicKey, Hash.sha256Hex(publicKey.encoded()), KeyStatus.ACTIVE, now, now, null, null, null, "");
     }
 

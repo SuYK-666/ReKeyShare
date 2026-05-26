@@ -6,7 +6,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import com.example.pre.util.SecureRandomUtil;
 
 public final class InMemoryProxySigningKeyRegistry implements ProxySigningKeyRegistry {
     private final Map<String, ProxySigningKeyRecord> records = new HashMap<>();
@@ -35,7 +35,7 @@ public final class InMemoryProxySigningKeyRegistry implements ProxySigningKeyReg
         long epoch = epochs.merge(proxyId, 1L, Long::sum);
         try {
             var pair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
-            var record = new ProxySigningKeyRecord(proxyId, "proxy-key-" + UUID.randomUUID(), epoch,
+            var record = new ProxySigningKeyRecord(proxyId, "proxy-key-" + SecureRandomUtil.randomId(), epoch,
                     pair.getPublic(), pair.getPrivate(), at.minusSeconds(1), at.plus(Duration.ofDays(365)),
                     ProxySigningKeyRecord.Status.ACTIVE);
             records.put(record.keyId(), record);

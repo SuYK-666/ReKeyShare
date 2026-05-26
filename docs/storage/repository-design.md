@@ -1,18 +1,30 @@
 # Repository Design
 
-当前系统保留两类实现：
+## Profile Mapping
 
-| 实现 | 用途 | 边界 |
-| --- | --- | --- |
-| `InMemory*Repository` | demo、单元/API 测试 | 进程退出后状态不恢复 |
-| `JdbcAuditRepository` + `schema.sql` | 审计链持久化与重启恢复证据 | 生产部署需提供外部不可篡改 anchor |
-| `JdbcGovernanceRepository` | data/grant/package 治理元数据持久化、撤销事务和限次 CAS | 密文内容仍由对象存储保存，HTTP runtime 默认使用内存适配器 |
+| Profile | Audit | Proof replay | Idempotency | Ciphertext store | Local key provider |
+| --- | --- | --- | --- | --- | --- |
+| `DEMO` | memory | memory | memory | memory boundary | none |
+| `PRODUCTION` | external deployment boundary | external deployment boundary | external deployment boundary | external deployment boundary | KMS/HSM boundary |
+| `SECURE_LOCAL` | H2 file JDBC | H2 file JDBC | H2 file JDBC | `FileObjectStore` | `LocalKeyManagementProvider` |
 
-`schema.sql` 定义 users/data/grants/packages、nonce 唯一键、token revocation 以及与
-`JdbcAuditRepository` 一致的 audit 字段。`JdbcGovernanceRepositoryTest` 使用
-第二个 repository 实例模拟重启恢复，并在 100 个并发请求下验证 `maxAccess=3`
-仅成功消费 3 次；`JdbcAuditRepositoryTest` 验证持久化 hash-chain 连续。
+`SECURE_LOCAL` is the reproducible durable local security-state profile. It
+does not claim an external identity provider, KMS/HSM or immutable audit
+anchor. The current domain object repositories for live data/grant/package
+API operations remain in-memory while `JdbcGovernanceRepository` supplies
+restart/revoke/counter evidence at the governance persistence boundary.
 
-本仓库提供的 JDBC 治理 adapter 可作为多实例事务接入点；当前无依赖 HTTP
-演示服务器仍默认选择内存 repository。部署时必须将 API 装配到 JDBC adapter，
-并把 ciphertext 对象存储、迁移工具与备份恢复策略纳入运行配置。
+## Durable Controls
+
+`schema.sql` contains:
+
+- tenant-scoped governance records for users, data, grants, packages and proxy nodes;
+- unique nonce allocation records;
+- `proof_replay_consumptions`, whose primary key atomically rejects duplicate formal proof consumption;
+- `idempotency_requests`, which retains response bodies across local restarts;
+- tenant-bearing audit events with indexed tenant queries.
+
+Evidence is provided by `JdbcGovernanceRepositoryTest`,
+`JdbcProofReplayRepositoryTest`, `JdbcIdempotencyRepositoryTest`,
+`JdbcAuditRepositoryTest`, `ObjectStoreTest` and the `SECURE_LOCAL` HTTP
+restart scenario in `ApiIntegrationTest`.

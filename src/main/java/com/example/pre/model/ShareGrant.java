@@ -3,7 +3,7 @@ package com.example.pre.model;
 import com.example.pre.crypto.ReEncryptionKey;
 
 import java.time.Instant;
-import java.util.UUID;
+import com.example.pre.util.SecureRandomUtil;
 
 public record ShareGrant(
         String grantId,
@@ -37,7 +37,7 @@ public record ShareGrant(
             int contentKeyVersion
     ) {
         return new ShareGrant(
-                UUID.randomUUID().toString(),
+                SecureRandomUtil.randomId(),
                 dataId,
                 ownerId,
                 recipientId,

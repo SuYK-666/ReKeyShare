@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.function.UnaryOperator;
+import com.example.pre.storage.InMemoryProofReplayRepository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -19,7 +20,7 @@ class PolicyBoundProofTamperTest {
         InMemoryProxySigningKeyRegistry keys = new InMemoryProxySigningKeyRegistry();
         ProxySigningKeyRecord key = keys.rotate("proxy-a", issued);
         PolicyBoundConversionProof valid = signed(key, base(key));
-        PolicyBoundProofVerifier verifier = new PolicyBoundProofVerifier(keys, new InMemoryProofReplayRegistry());
+        PolicyBoundProofVerifier verifier = new PolicyBoundProofVerifier(keys, new InMemoryProofReplayRepository());
         assertEquals(PolicyBoundProofVerifier.Decision.ACCEPT,
                 verifier.verify(valid, issued.plusSeconds(1), false));
 
@@ -67,7 +68,7 @@ class PolicyBoundProofTamperTest {
         InMemoryProxySigningKeyRegistry keys = new InMemoryProxySigningKeyRegistry();
         ProxySigningKeyRecord key = keys.rotate("proxy-a", issued);
         PolicyBoundConversionProof valid = signed(key, base(key));
-        PolicyBoundProofVerifier verifier = new PolicyBoundProofVerifier(keys, new InMemoryProofReplayRegistry());
+        PolicyBoundProofVerifier verifier = new PolicyBoundProofVerifier(keys, new InMemoryProofReplayRepository());
         assertEquals(PolicyBoundProofVerifier.Decision.ACCEPT, verifier.verify(valid, issued.plusSeconds(1), true));
         assertEquals(PolicyBoundProofVerifier.Decision.PROOF_REPLAY_DETECTED,
                 verifier.verify(valid, issued.plusSeconds(2), true));

@@ -78,6 +78,35 @@ public final class JdbcGovernanceRepository {
         }
     }
 
+    public boolean consumeGrantDownload(String tenantId, String grantId) {
+        return consumeAction(tenantId, grantId, "download_count", "max_download_count", true);
+    }
+
+    public boolean consumeGrantReEncrypt(String tenantId, String grantId) {
+        return consumeAction(tenantId, grantId, "reencrypt_count", "max_reencrypt_count", false);
+    }
+
+    public boolean consumeGrantDecrypt(String tenantId, String grantId) {
+        return consumeAction(tenantId, grantId, "decrypt_count", "max_decrypt_count", true);
+    }
+
+    private boolean consumeAction(String tenantId, String grantId, String counter, String limit,
+                                  boolean consumesAccess) {
+        String accessUpdate = consumesAccess ? ", access_count = access_count + 1" : "";
+        String sql = "update grants set " + counter + " = " + counter + " + 1" + accessUpdate
+                + ", version = version + 1 where tenant_id = ? and grant_id = ? and status = 'ACTIVE' and "
+                + counter + " < " + limit
+                + (consumesAccess ? " and access_count < max_access_count" : "");
+        try (Connection connection = connection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tenantId);
+            statement.setString(2, grantId);
+            return statement.executeUpdate() == 1;
+        } catch (SQLException e) {
+            throw storageError("atomic action consumption failed", e);
+        }
+    }
+
     public void revokeAndInvalidate(String tenantId, String grantId) {
         try (Connection connection = connection()) {
             connection.setAutoCommit(false);
@@ -187,9 +216,9 @@ public final class JdbcGovernanceRepository {
         String sql = """
                 merge into grants (
                   tenant_id, grant_id, data_id, owner_id, recipient_id, status, policy_hash,
-                  content_key_version, max_access_count, access_count, reencrypt_count,
-                  download_count, decrypt_count, version
-                ) key (tenant_id, grant_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  content_key_version, max_access_count, max_reencrypt_count, max_download_count, max_decrypt_count,
+                  access_count, reencrypt_count, download_count, decrypt_count, version
+                ) key (tenant_id, grant_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, tenantId);
@@ -201,11 +230,14 @@ public final class JdbcGovernanceRepository {
             statement.setString(7, grant.policyHash());
             statement.setInt(8, grant.contentKeyVersion());
             statement.setInt(9, grant.policy().maxAccessCount());
-            statement.setInt(10, grant.accessCount());
-            statement.setInt(11, grant.reEncryptCount());
-            statement.setInt(12, grant.downloadCount());
-            statement.setInt(13, grant.decryptCount());
-            statement.setLong(14, 0);
+            statement.setInt(10, grant.policy().maxReEncryptCount());
+            statement.setInt(11, grant.policy().maxDownloadCount());
+            statement.setInt(12, grant.policy().maxDecryptCount());
+            statement.setInt(13, grant.accessCount());
+            statement.setInt(14, grant.reEncryptCount());
+            statement.setInt(15, grant.downloadCount());
+            statement.setInt(16, grant.decryptCount());
+            statement.setLong(17, 0);
             statement.executeUpdate();
         }
     }

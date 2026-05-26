@@ -1,3 +1,9 @@
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version VARCHAR(32) NOT NULL PRIMARY KEY,
+  description VARCHAR(256) NOT NULL,
+  applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS users (
   tenant_id VARCHAR(128) NOT NULL,
   user_id VARCHAR(128) NOT NULL,
@@ -32,6 +38,9 @@ CREATE TABLE IF NOT EXISTS grants (
   policy_hash VARCHAR(128) NOT NULL,
   content_key_version INT NOT NULL,
   max_access_count INT NOT NULL,
+  max_reencrypt_count INT NOT NULL DEFAULT 1,
+  max_download_count INT NOT NULL DEFAULT 1,
+  max_decrypt_count INT NOT NULL DEFAULT 1,
   access_count INT NOT NULL,
   reencrypt_count INT NOT NULL,
   download_count INT NOT NULL,
@@ -69,6 +78,10 @@ CREATE TABLE IF NOT EXISTS aes_gcm_nonces (
   UNIQUE (key_fingerprint, nonce)
 );
 
+ALTER TABLE grants ADD COLUMN IF NOT EXISTS max_reencrypt_count INT NOT NULL DEFAULT 1;
+ALTER TABLE grants ADD COLUMN IF NOT EXISTS max_download_count INT NOT NULL DEFAULT 1;
+ALTER TABLE grants ADD COLUMN IF NOT EXISTS max_decrypt_count INT NOT NULL DEFAULT 1;
+
 CREATE TABLE IF NOT EXISTS key_versions (
   tenant_id VARCHAR(128) NOT NULL,
   key_id VARCHAR(128) NOT NULL,
@@ -104,6 +117,26 @@ CREATE TABLE IF NOT EXISTS idempotency_records (
   response_digest VARCHAR(128) NOT NULL,
   expires_at TIMESTAMP NOT NULL,
   PRIMARY KEY (tenant_id, actor_id, action, resource_id, idempotency_key)
+);
+
+CREATE TABLE IF NOT EXISTS idempotency_requests (
+  scoped_key VARCHAR(768) NOT NULL PRIMARY KEY,
+  request_hash VARCHAR(128) NOT NULL,
+  response_status INT,
+  response_body CLOB,
+  expires_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS proof_replay_consumptions (
+  tenant_id VARCHAR(128) NOT NULL,
+  proxy_id VARCHAR(128) NOT NULL,
+  key_id VARCHAR(128) NOT NULL,
+  key_epoch BIGINT NOT NULL,
+  proof_nonce VARCHAR(256) NOT NULL,
+  canonical_payload_hash VARCHAR(128) NOT NULL,
+  consumed_at TIMESTAMP NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  PRIMARY KEY (tenant_id, proxy_id, key_id, key_epoch, proof_nonce, canonical_payload_hash)
 );
 
 CREATE TABLE IF NOT EXISTS rewrap_jobs (
@@ -147,10 +180,13 @@ CREATE TABLE IF NOT EXISTS audit_events (
   data_id VARCHAR(128) NOT NULL,
   grant_id VARCHAR(128) NOT NULL,
   package_id VARCHAR(128) NOT NULL,
+  tenant_id VARCHAR(128) NOT NULL,
   detail_json CLOB NOT NULL,
   previous_hash VARCHAR(128) NOT NULL,
   event_hash VARCHAR(128) NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS ix_audit_events_tenant_sequence ON audit_events (tenant_id, sequence);
 
 CREATE TABLE IF NOT EXISTS audit_public_keys (
   key_id VARCHAR(128) PRIMARY KEY,

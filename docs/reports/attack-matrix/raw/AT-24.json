@@ -1,0 +1,3 @@
+[
+  {"experimentId":"ATTACK-MATRIX","caseId":"AT-24","requirementId":"R-PROOF-001","mutatedField":"proofVersion","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"PROOF_INVALID","internalAuditReason":"VERSION_REJECTED","auditEventId":"audit-AT-24","evidencePath":"docs/reports/attack-matrix/raw/AT-24.json","passed":true}
+]

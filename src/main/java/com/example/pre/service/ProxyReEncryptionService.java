@@ -25,6 +25,7 @@ public final class ProxyReEncryptionService {
     private final ObjectAuthorizationService authorization;
     private final AuditRepository audit;
     private final ConversionProofService conversionProofs;
+    private final ProxyNodeService proxyNodes;
 
     public ProxyReEncryptionService(
             PreScheme scheme,
@@ -35,7 +36,7 @@ public final class ProxyReEncryptionService {
             AuditRepository audit
     ) {
         this(scheme, dataRepository, grantRepository, packageRepository, authorization, audit,
-                new ConversionProofService());
+                new ConversionProofService(), null);
     }
 
     public ProxyReEncryptionService(
@@ -47,6 +48,19 @@ public final class ProxyReEncryptionService {
             AuditRepository audit,
             ConversionProofService conversionProofs
     ) {
+        this(scheme, dataRepository, grantRepository, packageRepository, authorization, audit, conversionProofs, null);
+    }
+
+    public ProxyReEncryptionService(
+            PreScheme scheme,
+            DataRepository dataRepository,
+            GrantRepository grantRepository,
+            ReEncryptedPackageRepository packageRepository,
+            ObjectAuthorizationService authorization,
+            AuditRepository audit,
+            ConversionProofService conversionProofs,
+            ProxyNodeService proxyNodes
+    ) {
         this.scheme = scheme;
         this.dataRepository = dataRepository;
         this.grantRepository = grantRepository;
@@ -54,10 +68,14 @@ public final class ProxyReEncryptionService {
         this.authorization = authorization;
         this.audit = audit;
         this.conversionProofs = conversionProofs;
+        this.proxyNodes = proxyNodes;
     }
 
     public ReEncryptedPackage reEncrypt(SecurityContext proxyActor, String grantId) {
         synchronized (grantRepository) {
+            if (proxyNodes != null) {
+                proxyNodes.assertCanProxy(proxyActor, scheme.algorithm());
+            }
             ShareGrant grant = authorization.assertCanReEncryptGrant(proxyActor, grantId);
             EncryptedDataPackage data = dataRepository.findById(grant.dataId())
                     .orElseThrow(() -> new ReKeyShareException(ErrorCode.DATA_NOT_FOUND, "data not found"));
@@ -73,7 +91,7 @@ public final class ProxyReEncryptionService {
             }
             EncryptedKeyCapsule transformed = scheme.reEncrypt(data.originalCapsule(), reKey, ownerContext);
             ReEncryptedPackage dataPackage = new ReEncryptedPackage(
-                    java.util.UUID.randomUUID().toString(),
+                    com.example.pre.util.SecureRandomUtil.randomId(),
                     grant.grantId(),
                     data.dataId(),
                     data.ownerId(),
@@ -98,11 +116,13 @@ public final class ProxyReEncryptionService {
                     ""
             );
             dataPackage = dataPackage.withIssuedManifestHash(PackageManifest.issue(dataPackage).manifestHash());
-            dataPackage = dataPackage.withConversionProof(conversionProofs.issue(dataPackage, grant, proxyActor.userId()));
+            dataPackage = dataPackage.withConversionProof(conversionProofs.issue(dataPackage, grant,
+                    proxyActor.userId(), proxyActor.tenantId()));
             packageRepository.save(dataPackage);
             grantRepository.save(grant.incrementReEncrypt());
             audit.record(new AuditEvent(Instant.now(), proxyActor.userId(), "PROXY_REENCRYPT", dataPackage.packageId(),
-                    true, "proofDigest=" + ConversionProofService.digest(dataPackage.conversionProof())));
+                    true, "proofDigest=" + ConversionProofService.digest(dataPackage.conversionProof()))
+                    .withTenant(proxyActor.tenantId()));
             return dataPackage;
         }
     }

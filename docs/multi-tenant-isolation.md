@@ -9,7 +9,15 @@ Cryptographic isolation is independent of storage filtering: `tenantId` is one o
 canonical AAD fields in `CapsuleContext`, and `CryptoProviderTest` verifies that replacing
 it prevents DEK recovery.
 
-The lightweight HTTP demo is not wired to tenant-scoped JDBC storage, and the current
-generic audit-event model does not expose a first-class tenant query. Production
-multi-tenant and per-tenant audit claims therefore require durable runtime wiring plus a
-tenant-bearing audit schema/API extension.
+Formal conversion proof issuance receives tenant identity from `SecurityContext`,
+not proof request data. Trusted verification can require an expected tenant and
+rejects a mismatched proof before replay consumption.
+
+`AuditEvent` now contains a hash-bound `tenantId`; `AuditRepository.findByTenant(...)`
+and the JDBC tenant index provide a query/storage boundary. Altering an event tenant
+invalidates its audit hash chain.
+
+The lightweight HTTP composition is not yet wired to tenant-scoped JDBC repositories,
+and baseline/demo event emitters without trusted tenant input use public scope.
+Production multi-tenant claims still require durable HTTP repository wiring and
+tenant-scoped authorization on audit API queries.

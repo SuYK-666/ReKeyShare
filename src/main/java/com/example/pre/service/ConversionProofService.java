@@ -14,6 +14,10 @@ import com.example.pre.model.ReEncryptedPackage;
 import com.example.pre.model.ShareGrant;
 import com.example.pre.util.Bytes;
 import com.example.pre.util.SecureRandomUtil;
+import com.example.pre.storage.InMemoryProofReplayRepository;
+import com.example.pre.storage.ProofReplayRepository;
+import com.example.pre.storage.AuditRepository;
+import com.example.pre.model.AuditEvent;
 
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -28,24 +32,41 @@ import java.util.Base64;
 public final class ConversionProofService {
     private static final Duration MAX_PROOF_AGE = Duration.ofMinutes(15);
     private final ProxySigningKeyRegistry signingKeys;
+    private final ProofReplayRepository replayRepository;
+    private final AuditRepository audit;
     private final ProofPayloadCanonicalizer canonicalizer = new ProofPayloadCanonicalizer();
 
     public ConversionProofService() {
-        this(new InMemoryProxySigningKeyRegistry());
+        this(new InMemoryProxySigningKeyRegistry(), new InMemoryProofReplayRepository(), null);
     }
 
     public ConversionProofService(ProxySigningKeyRegistry signingKeys) {
+        this(signingKeys, new InMemoryProofReplayRepository(), null);
+    }
+
+    public ConversionProofService(ProxySigningKeyRegistry signingKeys, ProofReplayRepository replayRepository) {
+        this(signingKeys, replayRepository, null);
+    }
+
+    public ConversionProofService(ProxySigningKeyRegistry signingKeys, ProofReplayRepository replayRepository,
+                                  AuditRepository audit) {
         this.signingKeys = signingKeys;
+        this.replayRepository = replayRepository;
+        this.audit = audit;
     }
 
     public ConversionProof issue(ReEncryptedPackage dataPackage, ShareGrant grant, String proxyId) {
+        return issue(dataPackage, grant, proxyId, "demo");
+    }
+
+    public ConversionProof issue(ReEncryptedPackage dataPackage, ShareGrant grant, String proxyId, String tenantId) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(MAX_PROOF_AGE);
         String nonce = Base64.getEncoder().encodeToString(SecureRandomUtil.randomBytes(16));
         ProxySigningKeyRecord key = signingKeys.activeForSigning(proxyId, issuedAt);
         ConversionProof unsigned = new ConversionProof("POLICY_BOUND_PROOF_V1", AlgorithmSuite.POLICY_BOUND_PRE_V1.name(),
                 objectDigest(dataPackage), grantDigest(grant), capsuleDigest(dataPackage), packageDigest(dataPackage),
-                proxyId, issuedAt, nonce, "Ed25519", "", "", "tenant-default", dataPackage.dataId(),
+                proxyId, issuedAt, nonce, "Ed25519", "", "", tenantId, dataPackage.dataId(),
                 grant.grantId(), grant.ownerId(), grant.recipientId(), dataPackage.packageId(), grant.policyHash(),
                 grant.contentKeyVersion(), Hash.sha256Hex(dataPackage.aad()), key.keyId(), key.keyEpoch(),
                 expiresAt, "");
@@ -56,15 +77,43 @@ public final class ConversionProofService {
     }
 
     public boolean verifyTrusted(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant, Instant now) {
+        return verifyTrusted(proof, dataPackage, grant, proof == null ? "" : proof.tenantId(), now);
+    }
+
+    public boolean verifyTrusted(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant,
+                                 String tenantId, Instant now) {
+        return verifyTrusted(proof, dataPackage, grant, tenantId, now, true);
+    }
+
+    public boolean verifyTrustedForPackageRead(ConversionProof proof, ReEncryptedPackage dataPackage,
+                                               ShareGrant grant, Instant now) {
+        return verifyTrusted(proof, dataPackage, grant, proof == null ? "" : proof.tenantId(), now, false);
+    }
+
+    private boolean verifyTrusted(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant,
+                                  String tenantId, Instant now, boolean consume) {
         if (proof == null || !matchesContext(proof, dataPackage, grant)) {
             return false;
         }
-        return new PolicyBoundProofVerifier(signingKeys, (nonce, hash) -> true)
-                .verify(toPolicyBound(proof, proof.canonicalPayloadHash()), now, false)
-                == PolicyBoundProofVerifier.Decision.ACCEPT;
+        if (!tenantId.equals(proof.tenantId())) {
+            return false;
+        }
+        PolicyBoundProofVerifier.Decision decision = new PolicyBoundProofVerifier(signingKeys, replayRepository)
+                .verify(toPolicyBound(proof, proof.canonicalPayloadHash()), now, consume);
+        if (decision == PolicyBoundProofVerifier.Decision.PROOF_REPLAY_DETECTED && audit != null) {
+            audit.record(new AuditEvent(now, proof.proxyId(), "CONVERSION_PROOF_VERIFY_FAILED",
+                    proof.packageId(), false, "PROOF_REPLAY").withTenant(proof.tenantId()));
+        }
+        return decision == PolicyBoundProofVerifier.Decision.ACCEPT;
     }
 
-    public static boolean verify(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant, Instant now) {
+    /**
+     * Compatibility verifier for baseline demo fixtures only. Formal package flows use
+     * {@link #verifyTrusted(ConversionProof, ReEncryptedPackage, ShareGrant, Instant)}.
+     */
+    @Deprecated(forRemoval = true)
+    public static boolean verifyLegacyDemo(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant,
+                                           Instant now) {
         if (proof == null || !"conversion-proof-v1".equals(proof.proofVersion())
                 || !"Ed25519".equals(proof.signatureAlgorithm())
                 || proof.issuedAt().isAfter(now.plusSeconds(30))

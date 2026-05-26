@@ -3,7 +3,7 @@ package com.example.pre.model;
 import com.example.pre.crypto.ecc.ReKeySessionContext;
 
 import java.time.Instant;
-import java.util.UUID;
+import com.example.pre.util.SecureRandomUtil;
 
 public record ReKeySession(
         String sessionId,
@@ -17,8 +17,8 @@ public record ReKeySession(
         Instant expiresAt
 ) {
     public static ReKeySession create(String dataId, String ownerId, String recipientId, AlgorithmType algorithm, Instant expiresAt) {
-        return new ReKeySession(UUID.randomUUID().toString(), dataId, ownerId, recipientId, algorithm,
-                UUID.randomUUID().toString(), "CREATED", Instant.now(), expiresAt);
+        return new ReKeySession(SecureRandomUtil.randomId(), dataId, ownerId, recipientId, algorithm,
+                SecureRandomUtil.randomId(), "CREATED", Instant.now(), expiresAt);
     }
 
     public boolean expired(Instant now) {

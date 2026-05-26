@@ -1,12 +1,12 @@
 package com.example.pre.service;
 
 import com.example.pre.crypto.hash.Hash;
+import com.example.pre.storage.IdempotencyRepository;
+import com.example.pre.storage.InMemoryIdempotencyRepository;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 public final class IdempotencyService {
@@ -22,17 +22,19 @@ public final class IdempotencyService {
         }
     }
 
-    private record Record(String requestHash, Outcome outcome, Instant expiresAt) {
-    }
-
-    private final Map<String, Record> records = new ConcurrentHashMap<>();
+    private final IdempotencyRepository repository;
     private final Duration retention;
 
     public IdempotencyService(Duration retention) {
+        this(retention, new InMemoryIdempotencyRepository());
+    }
+
+    public IdempotencyService(Duration retention, IdempotencyRepository repository) {
         if (retention.isNegative() || retention.isZero()) {
             throw new IllegalArgumentException("idempotency retention must be positive");
         }
         this.retention = retention;
+        this.repository = repository;
     }
 
     public synchronized String execute(String key, String actor, String action, String resource, String requestBody,
@@ -51,23 +53,25 @@ public final class IdempotencyService {
 
     public synchronized Decision begin(String key, String actor, String action, String resource, String requestBody) {
         Instant now = Instant.now();
-        records.entrySet().removeIf(entry -> !entry.getValue().expiresAt().isAfter(now));
         String scopedKey = actor + "|" + action + "|" + resource + "|" + key;
         String requestHash = Hash.sha256Hex(requestBody.getBytes(StandardCharsets.UTF_8));
-        Record existing = records.get(scopedKey);
+        IdempotencyRepository.Entry existing = repository.find(scopedKey, now).orElse(null);
         if (existing != null) {
             if (!existing.requestHash().equals(requestHash)) {
                 throw new ReKeyShareException(ErrorCode.IDEMPOTENCY_CONFLICT,
                         "idempotency key has already been used for a different request");
             }
-            if (existing.outcome() == null) {
+            if (!existing.completed()) {
                 throw new ReKeyShareException(ErrorCode.IDEMPOTENCY_CONFLICT,
                         "idempotent request is already in progress");
             }
-            return new Decision(null, existing.outcome());
+            return new Decision(null, new Outcome(existing.status(), existing.responseBody()));
         }
         Pending pending = new Pending(scopedKey, requestHash);
-        records.put(scopedKey, new Record(requestHash, null, now.plus(retention)));
+        if (!repository.begin(new IdempotencyRepository.Entry(scopedKey, requestHash, null, null,
+                now.plus(retention)))) {
+            return begin(key, actor, action, resource, requestBody);
+        }
         return new Decision(pending, null);
     }
 
@@ -75,10 +79,6 @@ public final class IdempotencyService {
         if (pending == null) {
             return;
         }
-        Record existing = records.get(pending.scopedKey());
-        if (existing != null && existing.requestHash().equals(pending.requestHash())) {
-            records.put(pending.scopedKey(), new Record(existing.requestHash(), new Outcome(status, body),
-                    existing.expiresAt()));
-        }
+        repository.complete(pending.scopedKey(), pending.requestHash(), status, body);
     }
 }

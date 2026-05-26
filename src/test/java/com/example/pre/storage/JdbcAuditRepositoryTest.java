@@ -22,11 +22,15 @@ class JdbcAuditRepositoryTest {
             JdbcSchemaInitializer.initialize(connection);
         }
         JdbcAuditRepository first = new JdbcAuditRepository(url, "sa", "");
-        first.record(new AuditEvent(Instant.now(), "alice", "UPLOAD", "data-1", true, "ciphertext"));
-        first.record(new AuditEvent(Instant.now(), "proxy", "REENCRYPT", "pkg-1", true, "capsule"));
+        first.record(new AuditEvent(Instant.now(), "alice", "UPLOAD", "data-1", true, "ciphertext")
+                .withTenant("tenant-a"));
+        first.record(new AuditEvent(Instant.now(), "proxy", "REENCRYPT", "pkg-1", true, "capsule")
+                .withTenant("tenant-b"));
 
         JdbcAuditRepository restarted = new JdbcAuditRepository(url, "sa", "");
         assertEquals(2, restarted.findAll().size());
+        assertEquals(1, restarted.findByTenant("tenant-a").size());
+        assertEquals(1, restarted.findByTenant("tenant-b").size());
         assertTrue(AuditService.verifyChain(restarted.findAll()).valid());
     }
 }

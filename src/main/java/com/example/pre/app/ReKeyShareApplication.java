@@ -48,7 +48,17 @@ import com.example.pre.storage.InMemoryGrantRepository;
 import com.example.pre.storage.InMemoryKeyRepository;
 import com.example.pre.storage.InMemoryReEncryptedPackageRepository;
 import com.example.pre.storage.InMemoryUserRepository;
+import com.example.pre.storage.AuditRepository;
+import com.example.pre.storage.JdbcAuditRepository;
+import com.example.pre.storage.JdbcIdempotencyRepository;
+import com.example.pre.storage.JdbcProofReplayRepository;
+import com.example.pre.storage.objectstore.ObjectStore;
+import com.example.pre.storage.objectstore.FileObjectStore;
+import com.example.pre.storage.objectstore.InMemoryObjectStore;
+import com.example.pre.crypto.provider.KeyManagementProvider;
+import com.example.pre.crypto.provider.LocalKeyManagementProvider;
 import com.example.pre.util.JsonFields;
+import com.example.pre.util.SecureRandomUtil;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -69,6 +79,9 @@ import java.util.UUID;
 import java.util.ArrayDeque;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public final class ReKeyShareApplication {
     private static final int MAX_BODY_BYTES = 1024 * 1024;
@@ -102,19 +115,21 @@ public final class ReKeyShareApplication {
     public static RunningServer start(int requestedPort, RuntimeProfile profile) throws IOException {
         ApiState state = new ApiState(profile);
         HttpServer server = HttpServer.create(new InetSocketAddress(requestedPort), 0);
-        server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool(runnable -> {
+        server.setExecutor(new ThreadPoolExecutor(4, 32, 30, TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(128), runnable -> {
             Thread thread = new Thread(runnable, "rekeyshare-http-worker");
             thread.setDaemon(true);
             return thread;
-        }));
+        }, new ThreadPoolExecutor.AbortPolicy()));
         server.createContext("/", exchange -> route(exchange, state));
         server.start();
         return new RunningServer(server, server.getAddress().getPort());
     }
 
     private static void route(HttpExchange exchange, ApiState state) throws IOException {
-        String requestId = "req-" + UUID.randomUUID();
+        String requestId = "req-" + SecureRandomUtil.randomId();
         String remote = exchange.getRemoteAddress() == null ? "local" : exchange.getRemoteAddress().getAddress().getHostAddress();
+        String scopedRateKey = remote;
         try {
             state.rateLimiter.assertAllowed(remote);
             String path = exchange.getRequestURI().getPath();
@@ -128,6 +143,8 @@ public final class ReKeyShareApplication {
                     ? new DemoTokenService.AuthenticatedActor("anonymous", UserRole.RECIPIENT, "public", "public", 0, Long.MAX_VALUE)
                     : actor(exchange, body, state);
             SecurityContext security = auth.securityContext();
+            scopedRateKey = remote + "|" + security.tenantId() + "|" + method + "|" + path;
+            state.rateLimiter.assertAllowed(scopedRateKey);
             String actor = auth.userId();
             IdempotencyService.Decision idempotency = beginIdempotency(exchange, state, method, path, actor, body);
             if (idempotency != null && idempotency.replayed()) {
@@ -158,7 +175,7 @@ public final class ReKeyShareApplication {
                 requireDemoFeature(state, path);
                 uploadData(exchange, state, actor, body);
             } else if ("POST".equals(method) && "/api/data/upload-encrypted".equals(path)) {
-                uploadEncryptedData(exchange, state, actor, body);
+                uploadEncryptedData(exchange, state, security, body);
             } else if ("GET".equals(method) && path.matches("/api/data/[^/]+")) {
                 getData(exchange, state, actor, segment(path, 3));
             } else if ("POST".equals(method) && "/api/grants".equals(path)) {
@@ -190,31 +207,32 @@ public final class ReKeyShareApplication {
             } else if (state.profile.demoFeaturesEnabled() && "GET".equals(method) && path.matches("/api/demo/shared-packages/[^/]+/decrypt")) {
                 demoDecryptSharedPackage(exchange, state, actor, segment(path, 4));
             } else if ("GET".equals(method) && "/api/audit/events".equals(path)) {
-                requireAdmin(auth);
+                requireAuditor(auth);
                 auditEvents(exchange, state);
             } else if ("GET".equals(method) && path.matches("/api/audit/data/[^/]+")) {
-                requireAdmin(auth);
+                requireAuditor(auth);
                 String dataId = segment(path, 4);
                 long count = state.audit.events().stream().filter(event -> dataId.equals(event.target()) || dataId.equals(event.dataId())).count();
                 writeJson(exchange, 200, "{\"code\":\"SUCCESS\",\"dataId\":\"" + json(dataId) + "\",\"count\":" + count + "}");
             } else if ("GET".equals(method) && "/api/audit/export".equals(path)) {
-                requireAdmin(auth);
+                requireAuditor(auth);
                 auditEvents(exchange, state);
             } else if ("GET".equals(method) && "/api/audit/root".equals(path)) {
-                requireAdmin(auth);
+                requireAuditor(auth);
                 AuditService.AuditVerificationResult result = state.audit.verifyChain();
                 writeJson(exchange, 200, "{\"rootHash\":\"" + result.rootHash() + "\",\"checkedEvents\":" + result.checkedEvents() + "}");
             } else if ("GET".equals(method) && "/api/audit/proof".equals(path)) {
-                requireAdmin(auth);
+                requireAuditor(auth);
                 AuditProofService.AuditProof proof = state.auditProof.createProof(state.audit.events());
                 writeJson(exchange, 200, state.auditProof.exportJson(proof));
             } else if ("GET".equals(method) && "/api/audit/verify".equals(path)) {
-                requireAdmin(auth);
+                requireAuditor(auth);
                 auditVerify(exchange, state);
             } else if ("POST".equals(method) && "/api/audit/tamper-demo".equals(path)) {
                 requireAdmin(auth);
-                if (state.auditRepository.findAll().size() > 1) {
-                    state.auditRepository.replaceForDemo(1, state.auditRepository.findAll().get(1).withAction("TAMPER_DEMO"));
+                if (state.auditRepository instanceof InMemoryAuditRepository memory
+                        && memory.findAll().size() > 1) {
+                    memory.replaceForDemo(1, memory.findAll().get(1).withAction("TAMPER_DEMO"));
                 }
                 AuditService.AuditVerificationResult result = state.audit.verifyChain();
                 writeJson(exchange, 200, "{\"valid\":" + result.valid() + ",\"brokenAt\":"
@@ -225,10 +243,10 @@ public final class ReKeyShareApplication {
                 state.audit.record("benchmark", "BENCHMARK_RUN", "docs/reports/raw/e02-algorithm-benchmark.csv", true, "api");
                 writeJson(exchange, 201, "{\"code\":\"SUCCESS\",\"result\":\"docs/reports/raw/e02-algorithm-benchmark.csv\"}");
             } else if ("GET".equals(method) && "/api/benchmark/results".equals(path)) {
-                requireAdmin(auth);
+                requireAuditor(auth);
                 writeJson(exchange, 200, "{\"code\":\"SUCCESS\",\"result\":\"docs/reports/raw/e02-algorithm-benchmark.csv\"}");
             } else if ("GET".equals(method) && "/api/benchmark/summary".equals(path)) {
-                requireAdmin(auth);
+                requireAuditor(auth);
                 writeJson(exchange, 200, state.benchmark.summaryJson(Path.of("docs", "reports", "raw", "e02-algorithm-benchmark.csv")));
             } else if ("POST".equals(method) && "/api/storage/export".equals(path)) {
                 requireAdmin(auth);
@@ -251,18 +269,26 @@ public final class ReKeyShareApplication {
                         + "\",\"manifestHash\":\"" + state.storage.fileHash(manifest) + "\"}");
             } else if ("GET".equals(method) && "/api/storage/status".equals(path)) {
                 requireAdmin(auth);
-                writeJson(exchange, 200, "{\"code\":\"SUCCESS\",\"mode\":\"memory+json-snapshot\",\"users\":"
+                writeJson(exchange, 200, "{\"code\":\"SUCCESS\",\"mode\":\""
+                        + (state.profile.durableLocalSecurityStores()
+                        ? "secure-local:h2-audit+replay+idempotency" : "memory+json-snapshot") + "\",\"users\":"
                         + state.users.findAll().size() + ",\"dataObjects\":" + state.dataRepository.findAll().size()
                         + ",\"grants\":" + state.grants.findAll().size() + ",\"packages\":"
-                        + state.packages.findAll().size() + "}");
+                        + state.packages.findAll().size() + ",\"objectStore\":\""
+                        + state.objectStore.getClass().getSimpleName() + "\",\"keyProvider\":\""
+                        + (state.localKeyProvider == null ? "external-boundary" : state.localKeyProvider.getClass().getSimpleName())
+                        + "\"}");
             } else {
                 writeJson(exchange, 404, errorJson(ErrorCode.INVALID_REQUEST.name(), "unknown endpoint", requestId));
             }
         } catch (ReKeyShareException e) {
             if (e.code() == ErrorCode.UNAUTHENTICATED || e.code() == ErrorCode.ACCESS_DENIED) {
                 state.rateLimiter.recordFailure(remote);
+                state.rateLimiter.recordFailure(scopedRateKey);
             }
-            writeJson(exchange, httpStatus(e.code()), errorJson(e.code().name(), e.getMessage(), requestId));
+            ErrorCode external = externalErrorCode(e.code());
+            writeJson(exchange, httpStatus(external), errorJson(external.name(), externalMessage(external),
+                    requestId));
         } catch (IllegalArgumentException e) {
             writeJson(exchange, 400, errorJson(ErrorCode.INVALID_REQUEST.name(), e.getMessage(), requestId));
         } catch (Exception e) {
@@ -336,20 +362,21 @@ public final class ReKeyShareApplication {
         writeJson(exchange, 201, "{\"code\":\"SUCCESS\",\"dataId\":\"" + data.dataId() + "\",\"contentKeyVersion\":" + data.contentKeyVersion() + "}");
     }
 
-    private static void uploadEncryptedData(HttpExchange exchange, ApiState state, String actor, Map<String, String> body) throws IOException {
-        User owner = requireUser(state, actor);
+    private static void uploadEncryptedData(HttpExchange exchange, ApiState state, SecurityContext security,
+                                            Map<String, String> body) throws IOException {
+        User owner = requireUser(state, security.userId());
         AlgorithmType requested = state.registry.parse(body.get("algorithm"), state.algorithmForUser(owner));
         requireAlgorithmForProfile(state, requested);
         if (requested != state.algorithmForUser(owner)) {
             throw new ReKeyShareException(ErrorCode.ALGORITHM_MISMATCH, "requested algorithm does not match owner key");
         }
-        String dataId = body.getOrDefault("dataId", UUID.randomUUID().toString());
+        String dataId = body.getOrDefault("dataId", SecureRandomUtil.randomId());
         int contentKeyVersion = Integer.parseInt(body.getOrDefault("contentKeyVersion", "1"));
         String ownerKeyId = body.getOrDefault("ownerKeyId", "demo-key-" + owner.userId());
         String policyHash = body.getOrDefault("policyHash", "OWNER_UPLOAD");
         CapsuleContext context = new CapsuleContext(dataId, owner.userId(), owner.userId(),
                 requested, ownerKeyId, contentKeyVersion, policyHash,
-                body.getOrDefault("tenantId", "tenant-default"),
+                security.tenantId(),
                 body.getOrDefault("grantId", "OWNER_UPLOAD"),
                 descriptorFor(requested).schemeId(),
                 body.getOrDefault("proofIssuerId", ""),
@@ -508,7 +535,6 @@ public final class ReKeyShareApplication {
         requireDemoFeature(state, "baseline proxy transformation");
         ShareGrant grant = state.grants.findById(body.get("grantId"))
                 .orElseThrow(() -> new ReKeyShareException(ErrorCode.GRANT_NOT_FOUND, "grant not found"));
-        state.proxyNodes.assertCanProxy(actor, grant.algorithm());
         ReEncryptedPackage dataPackage = state.proxy(grant.algorithm()).reEncrypt(actor, body.get("grantId"));
         writeJson(exchange, 201, "{\"code\":\"SUCCESS\",\"packageId\":\"" + dataPackage.packageId() + "\",\"grantId\":\"" + dataPackage.grantId() + "\"}");
     }
@@ -732,6 +758,12 @@ public final class ReKeyShareApplication {
         requireRole(actor, UserRole.ADMIN);
     }
 
+    private static void requireAuditor(DemoTokenService.AuthenticatedActor actor) {
+        if (actor.role() != UserRole.AUDITOR && actor.role() != UserRole.ADMIN) {
+            throw new ReKeyShareException(ErrorCode.ACCESS_DENIED, "required role: AUDITOR");
+        }
+    }
+
     private static Map<String, String> readFields(HttpExchange exchange) throws IOException {
         Map<String, String> values = parseQuery(exchange.getRequestURI().getRawQuery());
         if (!"GET".equals(exchange.getRequestMethod())) {
@@ -809,11 +841,22 @@ public final class ReKeyShareApplication {
     }
 
     private static String errorJson(String code, String message, String requestId) {
-        String eventId = "err-" + UUID.randomUUID();
+        String eventId = "err-" + SecureRandomUtil.randomId();
         return "{\"success\":false,\"errorCode\":\"" + json(code) + "\",\"code\":\"" + json(code)
                 + "\",\"message\":\"" + json(message) + "\",\"traceId\":\"" + json(requestId)
                 + "\",\"requestId\":\"" + json(requestId) + "\",\"eventId\":\"" + eventId
                 + "\",\"timestamp\":\"" + Instant.now() + "\"}";
+    }
+
+    private static ErrorCode externalErrorCode(ErrorCode internal) {
+        return switch (internal) {
+            case DATA_NOT_FOUND, GRANT_NOT_FOUND, PACKAGE_NOT_FOUND, ACCESS_DENIED -> ErrorCode.ACCESS_DENIED;
+            default -> internal;
+        };
+    }
+
+    private static String externalMessage(ErrorCode external) {
+        return external == ErrorCode.ACCESS_DENIED ? "object is not accessible" : external.name();
     }
 
     private static String b64(byte[] value) {
@@ -916,32 +959,73 @@ public final class ReKeyShareApplication {
         final RuntimeProfile profile;
         final SchemeRegistry registry = new SchemeRegistry();
         final CryptoProviderRegistry cryptoProviders = new CryptoProviderRegistry();
-        final DemoTokenService tokens = new DemoTokenService("rekeyshare-demo-signing-secret", 3600);
-        final InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        final DemoTokenService tokens;
+        final AuditRepository auditRepository;
         final InMemoryUserRepository users = new InMemoryUserRepository();
         final InMemoryDataRepository dataRepository = new InMemoryDataRepository();
         final InMemoryGrantRepository grants = new InMemoryGrantRepository();
         final InMemoryReEncryptedPackageRepository packages = new InMemoryReEncryptedPackageRepository();
         final InMemoryKeyRepository keyRepository = new InMemoryKeyRepository();
-        final AuditService audit = new AuditService(auditRepository);
-        final ObjectAuthorizationService objectAuth = new ObjectAuthorizationService(dataRepository, grants, packages, auditRepository);
-        final StorageSnapshotService storage = new StorageSnapshotService(users, dataRepository, grants, packages, auditRepository);
+        final AuditService audit;
+        final ObjectAuthorizationService objectAuth;
+        final StorageSnapshotService storage;
         final EccRecipientShareService eccShares = new EccRecipientShareService();
         final AuditProofService auditProof = new AuditProofService();
-        final com.example.pre.service.ConversionProofService conversionProofs = new com.example.pre.service.ConversionProofService();
+        final com.example.pre.service.ConversionProofService conversionProofs;
         final BenchmarkResultService benchmark = new BenchmarkResultService();
         final SimpleRateLimiter rateLimiter = new SimpleRateLimiter(20, 60);
-        final IdempotencyService idempotency = new IdempotencyService(Duration.ofHours(24));
-        final ProxyNodeService proxyNodes = new ProxyNodeService(auditRepository);
+        final IdempotencyService idempotency;
+        final ProxyNodeService proxyNodes;
+        final ObjectStore objectStore;
+        final KeyManagementProvider localKeyProvider;
         final boolean legacyActorHeaderEnabled = false;
 
         ApiState(RuntimeProfile profile) {
             this.profile = profile;
-            if (profile == RuntimeProfile.PRODUCTION) {
+            String tokenSecret = profile.durableLocalSecurityStores()
+                    ? requireSecureLocalSecret()
+                    : "rekeyshare-demo-signing-secret";
+            this.tokens = new DemoTokenService(tokenSecret, 3600);
+            if (profile.durableLocalSecurityStores()) {
+                String jdbcUrl = System.getProperty("rekeyshare.local.jdbcUrl",
+                        "jdbc:h2:file:./storage/secure-local/rekeyshare;AUTO_SERVER=TRUE");
+                this.auditRepository = new JdbcAuditRepository(jdbcUrl, "sa", "");
+                this.idempotency = new IdempotencyService(Duration.ofHours(24),
+                        new JdbcIdempotencyRepository(jdbcUrl, "sa", ""));
+                this.conversionProofs = new com.example.pre.service.ConversionProofService(
+                        new com.example.pre.crypto.proof.InMemoryProxySigningKeyRegistry(),
+                        new JdbcProofReplayRepository(jdbcUrl, "sa", ""), auditRepository);
+                this.objectStore = new FileObjectStore(Path.of(System.getProperty("rekeyshare.local.objectRoot",
+                        "storage/secure-local/objects")));
+                this.localKeyProvider = new LocalKeyManagementProvider(Path.of(System.getProperty(
+                        "rekeyshare.local.keyStore", "storage/secure-local/keys/keys.properties")));
+            } else {
+                this.auditRepository = new InMemoryAuditRepository();
+                this.idempotency = new IdempotencyService(Duration.ofHours(24));
+                this.conversionProofs = new com.example.pre.service.ConversionProofService(
+                        new com.example.pre.crypto.proof.InMemoryProxySigningKeyRegistry(),
+                        new com.example.pre.storage.InMemoryProofReplayRepository(), auditRepository);
+                this.objectStore = new InMemoryObjectStore();
+                this.localKeyProvider = null;
+            }
+            this.audit = new AuditService(auditRepository);
+            this.objectAuth = new ObjectAuthorizationService(dataRepository, grants, packages, auditRepository);
+            this.storage = new StorageSnapshotService(users, dataRepository, grants, packages, auditRepository);
+            this.proxyNodes = new ProxyNodeService(auditRepository);
+            if (profile == RuntimeProfile.PRODUCTION || profile == RuntimeProfile.SECURE_LOCAL) {
                 cryptoProviders.productionDefault();
             }
             audit.record("system", "API_START", "ReKeyShareApplication", true, "profile=" + profile);
             proxyNodes.register("system", "proxy", "default-service-token", Set.of("*"));
+        }
+
+        private static String requireSecureLocalSecret() {
+            String secret = System.getProperty("rekeyshare.local.tokenSecret",
+                    System.getenv("REKEYSHARE_LOCAL_TOKEN_SECRET"));
+            if (secret == null || secret.length() < 24) {
+                throw new IllegalStateException("secure-local requires rekeyshare.local.tokenSecret with at least 24 characters");
+            }
+            return secret;
         }
 
         UserService userService(AlgorithmType algorithm) {
@@ -962,7 +1046,7 @@ public final class ReKeyShareApplication {
 
         ProxyReEncryptionService proxy(AlgorithmType algorithm) {
             return new ProxyReEncryptionService(registry.get(algorithm), dataRepository, grants, packages, objectAuth,
-                    auditRepository, conversionProofs);
+                    auditRepository, conversionProofs, proxyNodes);
         }
 
         RevocationService revocation(AlgorithmType algorithm) {

@@ -31,7 +31,8 @@ public final class PackageVerifier {
                                     ConversionProofService trustedProofs, Instant now) {
         verify(dataPackage, now);
         verifyAuthorizationFreshness(dataPackage, grant, now);
-        if (!trustedProofs.verifyTrusted(dataPackage.payload().conversionProof(), dataPackage.payload(), grant, now)) {
+        if (!trustedProofs.verifyTrustedForPackageRead(dataPackage.payload().conversionProof(), dataPackage.payload(),
+                grant, now)) {
             throw new ReKeyShareException(ErrorCode.PROOF_INVALID, "conversion proof validation failed");
         }
     }

@@ -1,0 +1,3 @@
+[
+  {"experimentId":"ATTACK-MATRIX","caseId":"AT-29","requirementId":"R-PROOF-001","mutatedField":"keyEpoch","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"PROOF_INVALID","internalAuditReason":"PROOF_SIGNER_UNKNOWN","auditEventId":"audit-AT-29","evidencePath":"docs/reports/attack-matrix/raw/AT-29.json","passed":true}
+]

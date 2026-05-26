@@ -13,7 +13,7 @@ class AttackMatrixRunnerTest {
     @Test
     void emitsJsonCsvMarkdownAndRawEvidenceForAllSecurityCases(@TempDir Path output) throws Exception {
         var results = new AttackMatrixRunner().run(output);
-        assertEquals(13, results.size());
+        assertEquals(40, results.size());
         assertTrue(results.stream().allMatch(AttackCaseResult::passed));
         assertTrue(Files.exists(output.resolve("attack-results.json")));
         assertTrue(Files.exists(output.resolve("attack-results.csv")));

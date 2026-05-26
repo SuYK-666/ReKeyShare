@@ -1,25 +1,42 @@
 # Deployment And Verification
 
-## Profiles
+## Runtime Profiles
 
-| Profile | Allowed use |
+| Profile | Purpose |
 | --- | --- |
-| `STANDARD_ENVELOPE` | production default provider; `SECURE_ENVELOPE_V1` only |
-| `DEMO_RSA`, `DEMO_ECC` | local teaching/benchmark; not exposed in production OpenAPI |
-| `THRESHOLD_EXPERIMENTAL` | signed-share experiment only |
+| `production` | formal route/provider boundary; external durable integrations are required before deployment |
+| `secure-local` | local H2 audit/replay/idempotency, file ciphertext store and local key provider |
+| `demo` | teaching baseline and plaintext verification fixtures only |
 
-HTTP demo switch remains `-Drekeyshare.profile=demo`; without it the server omits
-plaintext, baseline grant and baseline proxy transform routes.
+Production and secure-local OpenAPI omit plaintext upload, baseline
+transformation and demo decrypt routes.
 
-## Production Integrations
+## Secure-Local Start
 
-- Persist `schema.sql` tables in a managed database and wire durable repositories.
-- Provision Ed25519 audit/proxy signing private keys in KMS/HSM and distribute pinned public keys.
-- Replace demo bearer tokens with OIDC/mTLS identity carrying tenant scope.
-- Store ciphertext in managed object storage and anchor audit roots to append-only storage.
+```powershell
+$env:REKEYSHARE_PROFILE = 'secure-local'
+$env:REKEYSHARE_LOCAL_TOKEN_SECRET = 'replace-with-at-least-24-local-chars'
+mvn -q -DskipTests compile exec:java -Dexec.mainClass=com.example.pre.app.ReKeyShareApplication
+```
 
-These integrations are requirements for a production deployment, not claims about the
-default in-memory executable.
+Defaults:
+
+| Component | Location |
+| --- | --- |
+| H2 database | `storage/secure-local/rekeyshare` |
+| Ciphertext objects | `storage/secure-local/objects` |
+| Local key store | `storage/secure-local/keys/keys.properties` |
+
+The local key store is a replaceable functional implementation, not HSM
+custody. `secure-local` fails fast unless a non-trivial token signing secret is
+supplied by configuration.
+
+## Remaining Production Integrations
+
+- Replace local/built-in token processing with OIDC or mTLS identity carrying tenant scope.
+- Wire complete live domain repositories to transactional managed persistence.
+- Provision signing/wrapping private keys in KMS/HSM.
+- Anchor audit roots to externally immutable storage.
 
 ## Verification
 
@@ -27,9 +44,6 @@ default in-memory executable.
 powershell -ExecutionPolicy Bypass -File scripts/verify-all.ps1
 ```
 
-The command executes `mvn verify` (tests, coverage, SpotBugs and SBOM), security
-gates, reproducible experiments, link/performance checks and writes
-`docs/reports/final-verification.md`.
-
-For offline component-level JSON verification commands, see
-[cli-verification.md](cli-verification.md).
+The command runs tests, JaCoCo, SpotBugs, SBOM generation, security boundary
+checks, reproducible experiments, documentation checks and performance smoke
+checks, then updates `docs/reports/final-verification.md`.

@@ -31,13 +31,13 @@ public final class DataSecurityService {
     }
 
     public EncryptedDataPackage upload(User owner, byte[] plaintext) {
-        return upload(new UploadDataCommand(owner, plaintext, "demo-" + UUID.randomUUID() + ".txt", "text/plain"));
+        return upload(new UploadDataCommand(owner, plaintext, "demo-" + SecureRandomUtil.randomId() + ".txt", "text/plain"));
     }
 
     public EncryptedDataPackage upload(UploadDataCommand command) {
         User owner = command.owner();
         byte[] plaintext = command.plaintext();
-        String dataId = UUID.randomUUID().toString();
+        String dataId = SecureRandomUtil.randomId();
         byte[] dataKey = SecureRandomUtil.randomBytes(AesGcm.KEY_BYTES);
         String ownerKeyId = "demo-key-" + owner.userId();
         String policyHash = "OWNER_UPLOAD";

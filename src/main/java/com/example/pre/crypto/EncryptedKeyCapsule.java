@@ -3,7 +3,7 @@ package com.example.pre.crypto;
 import com.example.pre.model.AlgorithmType;
 
 import java.time.Instant;
-import java.util.UUID;
+import com.example.pre.util.SecureRandomUtil;
 
 public record EncryptedKeyCapsule(
         String capsuleId,
@@ -30,7 +30,7 @@ public record EncryptedKeyCapsule(
             byte[] keyNonce
     ) {
         this(
-                UUID.randomUUID().toString(),
+                SecureRandomUtil.randomId(),
                 algorithm,
                 algorithm.name() + "-teaching-prototype",
                 "",

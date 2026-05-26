@@ -8,4 +8,8 @@ public interface AuditRepository {
     void record(AuditEvent event);
 
     List<AuditEvent> findAll();
+
+    default List<AuditEvent> findByTenant(String tenantId) {
+        return findAll().stream().filter(event -> tenantId.equals(event.tenantId())).toList();
+    }
 }

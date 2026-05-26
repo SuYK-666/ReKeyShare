@@ -30,6 +30,14 @@ class AuditHashChainTest {
     }
 
     @Test
+    void detectsTenantFieldTamper() {
+        InMemoryAuditRepository audit = sampleChain();
+        audit.replaceForDemo(1, audit.findAll().get(1).withTenant("tenant-b"));
+        assertFalse(audit.verifyChain().valid());
+        assertEquals(1, audit.verifyChain().brokenAt());
+    }
+
+    @Test
     void recordsEnoughEventsForEvidenceChain() {
         InMemoryAuditRepository audit = new InMemoryAuditRepository();
         for (int i = 0; i < 22; i++) {

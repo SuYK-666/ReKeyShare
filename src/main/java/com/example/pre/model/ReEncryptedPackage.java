@@ -3,7 +3,7 @@ package com.example.pre.model;
 import com.example.pre.crypto.EncryptedKeyCapsule;
 
 import java.time.Instant;
-import java.util.UUID;
+import com.example.pre.util.SecureRandomUtil;
 
 public record ReEncryptedPackage(
         String packageId,
@@ -74,7 +74,7 @@ public record ReEncryptedPackage(
             Instant authorizedAt
     ) {
         this(
-                UUID.randomUUID().toString(),
+                SecureRandomUtil.randomId(),
                 "legacy-direct-authorize",
                 dataId,
                 ownerId,

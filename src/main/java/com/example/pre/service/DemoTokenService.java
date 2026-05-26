@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
+import com.example.pre.util.SecureRandomUtil;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class DemoTokenService {
@@ -44,7 +44,7 @@ public final class DemoTokenService {
     public String issue(User user) {
         long issuedAt = Instant.now().getEpochSecond();
         long expiresAt = issuedAt + ttlSeconds;
-        String tokenId = UUID.randomUUID().toString();
+        String tokenId = SecureRandomUtil.randomId();
         String payload = user.userId() + "|" + user.role().name() + "|" + issuedAt + "|"
                 + expiresAt + "|" + tokenId + "|default|" + issuer + "|" + audience + "|" + activeKeyId;
         return base64(payload) + "." + sign(payload);
