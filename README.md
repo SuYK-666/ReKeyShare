@@ -2,9 +2,9 @@
 
 > 面向半可信云存储与代理节点的数据安全共享系统原型。
 
-[![Commit](https://img.shields.io/github/last-commit/SuYK-666/proxy-re-enc/main)](https://github.com/SuYK-666/proxy-re-enc/commits/main)
+[![Commit](https://img.shields.io/github/last-commit/SuYK-666/ReKeyShare/main)](https://github.com/SuYK-666/ReKeyShare/commits/main)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://adoptium.net/)
-[![CI](https://github.com/SuYK-666/proxy-re-enc/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/SuYK-666/proxy-re-enc/actions/workflows/backend-ci.yml)
+[![CI](https://github.com/SuYK-666/ReKeyShare/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/SuYK-666/ReKeyShare/actions/workflows/backend-ci.yml)
 [![Coverage](https://img.shields.io/badge/Coverage-JaCoCo%20gate-blue)](docs/ops/ci-quality-gates.md)
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-blue)](docs/ops/ci-quality-gates.md)
 
