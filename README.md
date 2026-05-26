@@ -20,12 +20,12 @@ ReKeyShare 是一个用 Java 实现的数据安全共享系统原型。项目围
 生产路径的核心边界是：服务端保存密文、nonce、AAD、capsule 与验证元数据，
 不保存用户明文、DEK 明文或用户私钥。
 
-本轮严格验收加固进一步加入 `CryptoProfile`/profile guard、Ed25519
-`ConversionProof` 下载前验证、Ed25519 audit checkpoint、
-`ThresholdReEncryptionService` signed-share 实验、`KeyLifecycleService`
-撤销编排、`IdempotencyService` 契约、12 字段 canonical AAD 验证与
-敏感密码材料默认脱敏输出。正式 OpenAPI 不再暴露 RSA/ECC baseline grant
-或 transform 路由。
+本轮严格验收加固进一步加入 `CryptoProfile`/profile guard、
+`POLICY_BOUND_PROOF_V1` canonical JSON 证明协议与 proxy signing key
+registry、`HPKE_STYLE_ENVELOPE_V1` 对照封装路径、threshold session/transcript、
+Ed25519 audit checkpoint、撤销 freshness 验证、对象存储接口、幂等契约、
+12 字段 canonical AAD 验证与机器可读 attack matrix。正式 OpenAPI 不再暴露
+RSA/ECC baseline grant 或 transform 路由。
 
 ## 目录
 
@@ -117,6 +117,7 @@ ReKeyShare 的安全设计围绕“服务端可托管密文和元数据，但不
 | AES-GCM 数据保护 | 支持 nonce 复用检测、AAD 绑定、ciphertext hash 与 chunked encryption 组件 |
 | 密码适配层 | `SchemeDescriptor` 明示 baseline/proof 状态；production 默认选择不得仅为 baseline |
 | 安全封装路径 | `SECURE_ENVELOPE_V1` 使用 JCA 原语，12 个 AAD 字段逐项篡改测试通过 |
+| HPKE-style 封装路径 | `HPKE_STYLE_ENVELOPE_V1` 直接为 recipient 封装内容密钥，拒绝 wrong key/AAD/header/suite；不是 PRE |
 | PRE baseline | 保留 RSA/ECC 两条教学型代理重加密路径，便于流程验证和性能对照 |
 | ECC recipient-share 流程 | 使用 session、challenge、过期时间与签名校验约束接收方份额提交 |
 | 对象级授权 | 对 dataId、grantId、packageId 等对象执行统一访问控制 |
@@ -124,8 +125,8 @@ ReKeyShare 的安全设计围绕“服务端可托管密文和元数据，但不
 | 撤销与轮换 | grant revoke 会失效相关 package；owner-side rotation 用新密文版本替换旧授权面 |
 | 代理节点治理 | 代理节点可注册、撤销，并与 token 身份、租户范围绑定 |
 | 可验证共享包 | `SharedPackageV2` 固化签发 manifest，绑定 ciphertext/AAD/capsule/policy/key version |
-| 转换证明 | `ConversionProof` 由代理 Ed25519 签名，下载前绑定当前 grant 和可信 signer 验证 |
-| 阈值 signed share | `ThresholdReEncryptionService` 支持 `2/3`、`3/5` 且拒绝错误 share |
+| 策略绑定证明 | `PolicyBoundProofVerifier` 以 canonical JSON、registry signer、expiry/replay 与 package context 验证转换结果 |
+| 阈值 signed share | `ThresholdSessionService` 支持 scoped share 与离线 transcript，拒绝错误上下文/epoch/replay |
 | 密钥生命周期 | `KeyLifecycleService` 编排 soft/hard/emergency revoke，rotation 保持 owner-side |
 | 流式验证 | chunk decrypt/verify 与 Merkle root，E03 覆盖 100 MB、heap 记录及修改/删除/重排/AAD 负例 |
 | 可验证审计 | hash-chain audit log、tamper detection、proof export 与 JDBC 重启验证 |
@@ -133,6 +134,7 @@ ReKeyShare 的安全设计围绕“服务端可托管密文和元数据，但不
 | 代理治理 | 节点状态、tenant 范围、scheme 白名单与 quota |
 | 持久化设计 | JDBC 治理元数据与 audit 可重启恢复；100 并发限次通过原子更新证明不超发 |
 | 实验报告 | 一条命令生成 raw/summary，覆盖 secure envelope、baseline、流式、五类数据分布、篡改与 threshold prototype |
+| 攻击证据 | `AttackMatrixRunner` 输出 JSON/CSV/Markdown/raw，覆盖 IDOR、撤销、proof、AAD、threshold、audit 与幂等冲突 |
 
 ## 快速开始
 
@@ -301,6 +303,7 @@ curl http://localhost:8080/api/audit/proof `
 mvn -q -Dexec.mainClass=com.example.pre.app.VerificationCli -Dexec.args="crypto verify-envelope" exec:java
 mvn -q -Dexec.mainClass=com.example.pre.app.VerificationCli -Dexec.args="audit verify" exec:java
 mvn -q -Dexec.mainClass=com.example.pre.app.VerificationCli -Dexec.args="attack-matrix check" exec:java
+mvn -q -DskipTests compile exec:java -Dexec.mainClass=com.example.pre.experiment.attack.AttackMatrixRunner
 ```
 
 常用验证入口：
@@ -380,6 +383,12 @@ Maven 配置中包含 JUnit 5、JaCoCo、SpotBugs 与 OWASP dependency-check，�
 ## 文档索引
 
 - [docs/doc-index.md](docs/doc-index.md)：升级后完整文档导航。
+- [docs/architecture/PROJECT_POSITIONING.md](docs/architecture/PROJECT_POSITIONING.md)：正式产品定位与边界。
+- [docs/crypto/SCHEME_BOUNDARY.md](docs/crypto/SCHEME_BOUNDARY.md)：algorithm suite 分级与禁止声明。
+- [docs/crypto/POLICY_BOUND_PROOF_V1.md](docs/crypto/POLICY_BOUND_PROOF_V1.md)：策略绑定证明协议。
+- [docs/crypto/HPKE_STYLE_ENVELOPE_V1.md](docs/crypto/HPKE_STYLE_ENVELOPE_V1.md)：直接接收方封装路径。
+- [docs/security/ATTACK_MATRIX.md](docs/security/ATTACK_MATRIX.md)：可复现攻击证据模型。
+- [docs/testing/TRACEABILITY_MATRIX.md](docs/testing/TRACEABILITY_MATRIX.md)：新验收项到代码、测试、报告的映射。
 - [docs/traceability-matrix.md](docs/traceability-matrix.md)：需求到代码、测试、报告的追踪矩阵。
 - [docs/architecture.md](docs/architecture.md)：验收要求的架构入口。
 - [docs/crypto/algorithm-spec.md](docs/crypto/algorithm-spec.md)：suite、profile 与安全边界。
@@ -417,6 +426,10 @@ ReKeyShare 目前适合作为数据安全共享系统的课程、竞赛和研究
 - 完善大文件断点上传、生产对象存储装配和端到端多实例并发压测。
 
 当前仓库已经实现 chunk 解密/校验、100MB 实验 runner、package V2 与单实例并发限次验证；生产部署仍需落地多实例事务 repository、外部 audit anchor、企业 IAM 与 KMS/HSM。
+
+完整、明确的未集成生产依赖见
+[docs/known-limitations.md](docs/known-limitations.md)。本仓库不会把
+教学 PRE、threshold 治理原型或尚未部署的外部适配器描述成已上线的生产保证。
 
 ## 上游与原创性说明
 

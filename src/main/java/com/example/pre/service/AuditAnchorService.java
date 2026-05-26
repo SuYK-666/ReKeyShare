@@ -6,7 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 
-public final class AuditAnchorService {
+public final class AuditAnchorService implements AuditAnchorProvider {
     private final AuditProofService proofService;
     private final Path anchorLog;
 
@@ -15,6 +15,7 @@ public final class AuditAnchorService {
         this.anchorLog = anchorLog;
     }
 
+    @Override
     public AuditProofService.AuditProof anchor(java.util.List<com.example.pre.model.AuditEvent> events) {
         AuditProofService.AuditProof proof = proofService.createProof(events);
         String line = Instant.now() + "|" + proof.eventCount() + "|" + proof.chainRoot()

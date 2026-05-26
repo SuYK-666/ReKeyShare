@@ -1,0 +1,1 @@
+{"experimentId":"E-03","requirementId":"R-PROOF-001","expectedDecision":"PASS","actualDecision":"PASS","metrics":{"fieldTamperCases":11,"falseAccept":0,"replayAccepted":0,"revokedSignerAccepted":0},"evidencePath":"docs/reports/attack-matrix/attack-results.json","test":"PolicyBoundProofTamperTest, ConversionProofServiceTest"}

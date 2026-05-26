@@ -1,0 +1,1 @@
+{"experimentId":"E-07","requirementId":"R-THRESHOLD-001","expectedDecision":"PASS","actualDecision":"PASS","metrics":{"wrongContextAccepted":0,"duplicateShareAccepted":0,"replayAccepted":0},"evidencePath":"docs/reports/raw/e13-threshold-results.csv","test":"ThresholdContextBindingTest"}

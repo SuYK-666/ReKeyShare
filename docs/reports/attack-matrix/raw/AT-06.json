@@ -1,0 +1,3 @@
+[
+  {"experimentId":"ATTACK-MATRIX","caseId":"AT-06","requirementId":"R-PROOF-001","mutatedField":"policyHash","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"PROOF_INVALID","internalAuditReason":"POLICY_HASH_MISMATCH","auditEventId":"audit-AT-06","evidencePath":"docs/reports/attack-matrix/raw/AT-06.json","passed":true}
+]

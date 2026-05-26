@@ -1,9 +1,9 @@
 # E05 Negative Authorization Matrix
 
-- Commit: `9189d85`
-- JDK: `22.0.2`
+- Commit: `172f38c`
+- JDK: `25.0.2`
 - OS: `Windows 11 10.0`
-- Generated: `2026-05-26T11:45:38.385216800Z`
+- Generated: `2026-05-26T15:36:26.348410100Z`
 
 The matrix exercises tenant, role, action, purpose, classification, access-count, proxy-state and time-window denial decisions across 50 high-risk samples.
 

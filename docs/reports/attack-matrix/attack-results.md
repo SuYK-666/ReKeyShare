@@ -1,0 +1,17 @@
+# Attack Matrix Results
+
+| Case | Requirement | Mutation | Expected | Actual | Error | Pass |
+| --- | --- | --- | --- | --- | --- | --- |
+| AT-01 | R-BOLA-001 | dataId | REJECT | REJECT | OBJECT_NOT_ACCESSIBLE | PASS |
+| AT-02 | R-BOLA-001 | grantId | REJECT | REJECT | OBJECT_NOT_ACCESSIBLE | PASS |
+| AT-03 | R-REVOKE-001 | grant.status | REJECT | REJECT | GRANT_REVOKED | PASS |
+| AT-04 | R-PROOF-001 | capsuleHash | REJECT | REJECT | PROOF_INVALID | PASS |
+| AT-05 | R-AAD-001 | aadHash | REJECT | REJECT | AAD_MISMATCH | PASS |
+| AT-06 | R-PROOF-001 | policyHash | REJECT | REJECT | PROOF_INVALID | PASS |
+| AT-07 | R-THRESHOLD-001 | recipientId | REJECT | REJECT | THRESHOLD_SHARE_INVALID | PASS |
+| AT-08 | R-AUDIT-001 | eventHash | REJECT | REJECT | AUDIT_CHAIN_BROKEN | PASS |
+| AT-09 | R-PROOF-001 | keyId | REJECT | REJECT | PROOF_INVALID | PASS |
+| AT-10 | R-REVOKE-001 | contentKeyVersion | REJECT | REJECT | KEY_REVOKED | PASS |
+| AT-11 | R-BOLA-001 | tenantId | REJECT | REJECT | OBJECT_NOT_ACCESSIBLE | PASS |
+| AT-12 | R-PROOF-001 | manifestHash | REJECT | REJECT | PACKAGE_INVALID | PASS |
+| AT-13 | R-IDEMPOTENCY-001 | requestDigest | REJECT | REJECT | IDEMPOTENCY_CONFLICT | PASS |

@@ -1,9 +1,9 @@
 # E06 Revocation and Rotation
 
-- Commit: `9189d85`
-- JDK: `22.0.2`
+- Commit: `172f38c`
+- JDK: `25.0.2`
 - OS: `Windows 11 10.0`
-- Generated: `2026-05-26T11:46:29.290635Z`
+- Generated: `2026-05-26T15:37:07.924108700Z`
 
 A durable grant revoke invalidated Bob's issued package, then an owner-side rotated metadata version issued an active package for Carol at key version 2.
 

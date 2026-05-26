@@ -1,0 +1,1 @@
+{"experimentId":"E-02","requirementId":"R-AAD-001","expectedDecision":"PASS","actualDecision":"PASS","metrics":{"falseAccept":0},"evidencePath":"docs/reports/raw/e05-negative-policy-matrix.json","test":"CapsuleContextBindingTest, EnvelopeProviderNegativeTest"}

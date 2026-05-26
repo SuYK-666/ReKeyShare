@@ -1,0 +1,1 @@
+{"experimentId":"E-08","requirementId":"R-NONCE-001","expectedDecision":"PASS","actualDecision":"PASS","metrics":{"duplicateNonceAccepted":0},"evidencePath":"docs/reports/raw/e07-nonce-results.json","test":"AesGcmNonceManagerTest"}

@@ -29,7 +29,8 @@ class ConversionProofServiceTest {
         DataSecurityService data = new DataSecurityService(scheme, dataRepository, audit);
         AuthorizationService authz = new AuthorizationService(scheme, audit, grants);
         ObjectAuthorizationService objects = new ObjectAuthorizationService(dataRepository, grants, packages, audit);
-        ProxyReEncryptionService proxy = new ProxyReEncryptionService(scheme, dataRepository, grants, packages, objects, audit);
+        ConversionProofService proofs = new ConversionProofService();
+        ProxyReEncryptionService proxy = new ProxyReEncryptionService(scheme, dataRepository, grants, packages, objects, audit, proofs);
         var alice = users.createUser("Alice");
         var bob = users.createUser("Bob");
         var uploaded = data.upload(alice, Bytes.utf8("proof-bound-data"));
@@ -39,13 +40,13 @@ class ConversionProofServiceTest {
                 AccessPolicy.normal(Instant.now().plusSeconds(300)), share, session);
         var issued = proxy.reEncrypt("proxy", grant.grantId());
 
-        assertTrue(ConversionProofService.verify(issued.conversionProof(), issued, grant, Instant.now()));
+        assertTrue(proofs.verifyTrusted(issued.conversionProof(), issued, grant, Instant.now()));
         assertTrue(audit.findAll().stream().anyMatch(event -> event.message().startsWith("proofDigest=")));
 
         ConversionProof proof = issued.conversionProof();
         ConversionProof tampered = new ConversionProof(proof.proofVersion(), proof.algorithmSuite(), "bad-object",
                 proof.grantDigest(), proof.capsuleDigest(), proof.packageDigest(), proof.proxyId(), proof.issuedAt(),
                 proof.nonce(), proof.signatureAlgorithm(), proof.publicKey(), proof.signature());
-        assertFalse(ConversionProofService.verify(tampered, issued.withConversionProof(tampered), grant, Instant.now()));
+        assertFalse(proofs.verifyTrusted(tampered, issued.withConversionProof(tampered), grant, Instant.now()));
     }
 }

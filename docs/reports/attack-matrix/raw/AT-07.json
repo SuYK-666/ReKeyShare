@@ -1,0 +1,3 @@
+[
+  {"experimentId":"ATTACK-MATRIX","caseId":"AT-07","requirementId":"R-THRESHOLD-001","mutatedField":"recipientId","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"THRESHOLD_SHARE_INVALID","internalAuditReason":"SHARE_CONTEXT_MISMATCH","auditEventId":"audit-AT-07","evidencePath":"docs/reports/attack-matrix/raw/AT-07.json","passed":true}
+]

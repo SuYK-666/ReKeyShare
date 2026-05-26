@@ -1,0 +1,1 @@
+{"experimentId":"E-01","requirementId":"G-01/G-02","expectedDecision":"PASS","actualDecision":"PASS","metrics":{"plaintextLeakCount":0,"contentKeyLeakCount":0,"privateKeyLeakCount":0},"evidencePath":"docs/reports/raw/e12-proxy-minimum-knowledge-results.json","test":"SecurityBoundaryServiceTest"}

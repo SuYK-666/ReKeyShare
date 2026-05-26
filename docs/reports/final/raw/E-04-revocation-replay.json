@@ -1,0 +1,1 @@
+{"experimentId":"E-04","requirementId":"R-REVOKE-001","expectedDecision":"PASS","actualDecision":"PASS","metrics":{"revokedAccessAccepted":0,"oldKeyVersionAccepted":0},"evidencePath":"docs/reports/raw/e06-revocation-results.json","test":"PackageVerifierFreshnessTest, KeyLifecycleServiceTest"}

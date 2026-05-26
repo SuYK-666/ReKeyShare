@@ -1,0 +1,1 @@
+{"experimentId":"E-11","requirementId":"R-IDEMPOTENCY-001","expectedDecision":"PASS","actualDecision":"PASS","metrics":{"conflictDetected":true,"sensitiveErrorLeakCount":0},"evidencePath":"docs/reports/raw/e11-api-robustness-results.json","test":"IdempotencyServiceTest, ApiIntegrationTest"}

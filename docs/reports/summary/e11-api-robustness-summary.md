@@ -1,9 +1,9 @@
 # E11 API Robustness
 
-- Commit: `9189d85`
-- JDK: `22.0.2`
+- Commit: `172f38c`
+- JDK: `25.0.2`
 - OS: `Windows 11 10.0`
-- Generated: `2026-05-26T11:46:30.211854600Z`
+- Generated: `2026-05-26T15:37:08.395298100Z`
 
 Malformed JSON, unsupported content type, oversized body and hostile unauthenticated path input were handled as client failures without an HTTP 5xx response.
 

@@ -1,0 +1,1 @@
+{"experimentId":"E-06","requirementId":"R-ENVELOPE-001","expectedDecision":"PASS","actualDecision":"PASS","metrics":{"wrongRecipientAccepted":0,"wrongAadAccepted":0,"headerOrSuiteTamperAccepted":0},"evidencePath":"docs/reports/attack-matrix/attack-results.json","test":"EnvelopeProviderNegativeTest"}

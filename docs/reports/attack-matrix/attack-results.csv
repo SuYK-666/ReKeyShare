@@ -1,0 +1,14 @@
+experimentId,caseId,requirementId,mutatedField,expectedDecision,actualDecision,externalErrorCode,internalAuditReason,auditEventId,evidencePath,passed
+ATTACK-MATRIX,AT-01,R-BOLA-001,dataId,REJECT,REJECT,OBJECT_NOT_ACCESSIBLE,DATA_SCOPE_REJECTED,audit-AT-01,docs/reports/attack-matrix/raw/AT-01.json,true
+ATTACK-MATRIX,AT-02,R-BOLA-001,grantId,REJECT,REJECT,OBJECT_NOT_ACCESSIBLE,GRANT_SCOPE_REJECTED,audit-AT-02,docs/reports/attack-matrix/raw/AT-02.json,true
+ATTACK-MATRIX,AT-03,R-REVOKE-001,grant.status,REJECT,REJECT,GRANT_REVOKED,GRANT_NOT_ACTIVE,audit-AT-03,docs/reports/attack-matrix/raw/AT-03.json,true
+ATTACK-MATRIX,AT-04,R-PROOF-001,capsuleHash,REJECT,REJECT,PROOF_INVALID,CAPSULE_HASH_MISMATCH,audit-AT-04,docs/reports/attack-matrix/raw/AT-04.json,true
+ATTACK-MATRIX,AT-05,R-AAD-001,aadHash,REJECT,REJECT,AAD_MISMATCH,AAD_HASH_MISMATCH,audit-AT-05,docs/reports/attack-matrix/raw/AT-05.json,true
+ATTACK-MATRIX,AT-06,R-PROOF-001,policyHash,REJECT,REJECT,PROOF_INVALID,POLICY_HASH_MISMATCH,audit-AT-06,docs/reports/attack-matrix/raw/AT-06.json,true
+ATTACK-MATRIX,AT-07,R-THRESHOLD-001,recipientId,REJECT,REJECT,THRESHOLD_SHARE_INVALID,SHARE_CONTEXT_MISMATCH,audit-AT-07,docs/reports/attack-matrix/raw/AT-07.json,true
+ATTACK-MATRIX,AT-08,R-AUDIT-001,eventHash,REJECT,REJECT,AUDIT_CHAIN_BROKEN,HASH_CHAIN_MISMATCH,audit-AT-08,docs/reports/attack-matrix/raw/AT-08.json,true
+ATTACK-MATRIX,AT-09,R-PROOF-001,keyId,REJECT,REJECT,PROOF_INVALID,PROOF_SIGNER_REVOKED,audit-AT-09,docs/reports/attack-matrix/raw/AT-09.json,true
+ATTACK-MATRIX,AT-10,R-REVOKE-001,contentKeyVersion,REJECT,REJECT,KEY_REVOKED,STALE_KEY_VERSION,audit-AT-10,docs/reports/attack-matrix/raw/AT-10.json,true
+ATTACK-MATRIX,AT-11,R-BOLA-001,tenantId,REJECT,REJECT,OBJECT_NOT_ACCESSIBLE,TENANT_SCOPE_REJECTED,audit-AT-11,docs/reports/attack-matrix/raw/AT-11.json,true
+ATTACK-MATRIX,AT-12,R-PROOF-001,manifestHash,REJECT,REJECT,PACKAGE_INVALID,MANIFEST_MISMATCH,audit-AT-12,docs/reports/attack-matrix/raw/AT-12.json,true
+ATTACK-MATRIX,AT-13,R-IDEMPOTENCY-001,requestDigest,REJECT,REJECT,IDEMPOTENCY_CONFLICT,KEY_BODY_CONFLICT,audit-AT-13,docs/reports/attack-matrix/raw/AT-13.json,true

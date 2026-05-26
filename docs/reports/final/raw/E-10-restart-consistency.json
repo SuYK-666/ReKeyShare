@@ -1,0 +1,1 @@
+{"experimentId":"E-10","requirementId":"R-PERSIST-001","expectedDecision":"PASS","actualDecision":"PASS","metrics":{"jdbcRecoveryVerified":true},"evidencePath":"docs/reports/raw/e10-persistence-recovery-results.json","boundary":"HTTP default composition remains in-memory; external production wiring is not claimed","test":"JdbcGovernanceRepositoryTest, JdbcAuditRepositoryTest"}

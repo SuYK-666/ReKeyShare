@@ -1,0 +1,1 @@
+{"experimentId":"E-09","requirementId":"R-AUDIT-001","expectedDecision":"PASS","actualDecision":"PASS","metrics":{"tamperDetectedRate":"100%","falseNegative":0},"evidencePath":"docs/reports/raw/e08-audit-tamper-results.json","test":"AuditHashChainTest, AuditProofServiceTest"}

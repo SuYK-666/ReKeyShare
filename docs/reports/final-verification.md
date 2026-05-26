@@ -1,9 +1,9 @@
 ﻿# Final Verification
 
-- Commit: `9189d850fc483ae4f9f58f3b4fef1caae2b1a6e8`
-- Executed at: `2026-05-26T19:46:46.0409877+08:00`
-- Duration seconds: `166.95`
-- Java: `java version "22.0.2" 2024-07-16`
+- Commit: `172f38ce7a823ccbb703caf2a2e7900181678b6e`
+- Executed at: `2026-05-26T23:37:24.0748562+08:00`
+- Duration seconds: `129.61`
+- Java: `java version "25.0.2" 2026-01-20 LTS`
 - Build/unit/integration/security/static-quality gates (`mvn verify`): `PASS`
 - Security boundary gate: `PASS`
 - Reproducible experiment runner: `PASS`
