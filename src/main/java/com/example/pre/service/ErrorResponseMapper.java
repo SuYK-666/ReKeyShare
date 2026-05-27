@@ -1,5 +1,6 @@
 package com.example.pre.service;
 
+import java.time.Clock;
 import java.time.Instant;
 
 /**
@@ -7,6 +8,16 @@ import java.time.Instant;
  * available to audit.
  */
 public final class ErrorResponseMapper {
+	private final Clock clock;
+
+	public ErrorResponseMapper() {
+		this(Clock.systemUTC());
+	}
+
+	public ErrorResponseMapper(Clock clock) {
+		this.clock = clock;
+	}
+
 	public ErrorCode externalCode(ErrorCode internal) {
 		return switch (internal) {
 			case DATA_NOT_FOUND, GRANT_NOT_FOUND, PACKAGE_NOT_FOUND, ACCESS_DENIED -> ErrorCode.ACCESS_DENIED;
@@ -39,6 +50,7 @@ public final class ErrorResponseMapper {
 	public String json(ErrorCode external, String requestId) {
 		return "{\"success\":false,\"errorCode\":\"" + external.name() + "\",\"code\":\"" + external.name()
 				+ "\",\"message\":\"" + message(external) + "\",\"traceId\":\"" + requestId + "\",\"requestId\":\""
-				+ requestId + "\",\"eventId\":\"err-" + requestId + "\",\"timestamp\":\"" + Instant.now() + "\"}";
+				+ requestId + "\",\"eventId\":\"err-" + requestId + "\",\"timestamp\":\"" + Instant.now(clock)
+				+ "\"}";
 	}
 }

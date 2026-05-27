@@ -1,456 +1,262 @@
 # ReKeyShare
 
-## Second Iteration Status
+> 面向半可信存储与代理节点的可验证密文共享系统原型。
 
-The 2026-05-27 measured iteration adds persistent proof replay consumption
-adapters, formal-proof tenant binding from `SecurityContext`, service-layer
-proxy admission enforcement, tenant-aware audit hashing/query support,
-object-enumeration-safe external errors and a bounded HTTP executor. Continued
-work adds durable `SECURE_LOCAL` proxy quota/revocation state, version-bound
-package manifests, centralized external error mapping, fixed 40-case attack
-dataset evidence and CI dependency/SBOM/checksum release gates.
-
-Verification evidence and the remaining non-claimed runtime work are recorded
-in [docs/reports/SECOND_ITERATION_REPORT.md](docs/reports/SECOND_ITERATION_REPORT.md).
-Formal replay semantics are authoritative in
-[docs/security/proof-replay.md](docs/security/proof-replay.md).
-The authoritative documentation scopes are listed in
-[docs/doc-index.md](docs/doc-index.md); terminology is defined in
-[docs/glossary.md](docs/glossary.md).
-
-> 面向半可信云存储与代理节点的数据安全共享系统原型。
-
-[![Commit](https://img.shields.io/github/last-commit/SuYK-666/ReKeyShare/main)](https://github.com/SuYK-666/ReKeyShare/commits/main)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://adoptium.net/)
 [![CI](https://github.com/SuYK-666/ReKeyShare/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/SuYK-666/ReKeyShare/actions/workflows/backend-ci.yml)
-[![Coverage](https://img.shields.io/badge/Coverage-JaCoCo%20gate-blue)](docs/ops/ci-quality-gates.md)
+[![Coverage](https://img.shields.io/badge/Coverage-JaCoCo%20gates-blue)](docs/ops/ci-quality-gates.md)
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-blue)](docs/ops/ci-quality-gates.md)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-ReKeyShare 是一个用 Java 实现的数据安全共享系统原型。项目围绕
-“数据拥有者将密文托管到半可信存储，授权接收方通过代理重加密获得访问能力”的场景，
-提供客户端侧加密上传、对象级授权、代理节点治理、授权撤销、内容密钥轮换、
-可验证审计与安全测试报告等完整工程能力。
+ReKeyShare 是一个 Java 实现的安全数据共享后端原型，研究在服务端只托管
+密文与授权元数据的条件下，如何完成授权代理转换、撤销与轮换、可验证共享包、
+多租户对象隔离和可复核安全证据链。
 
-项目中的 `RSA_PRE` 与 `ECC_PRE` 明确定位为教学型 baseline 和对照实验实现，
-不作为生产级密码安全承诺。升级后的 `CryptoProvider` 适配层增加了
-`SECURE_ENVELOPE_V1`（JCA P-256 ECDH + HKDF-SHA256 + AES-256-GCM）
-作为直接接收方封装候选路径；它不冒充 PRE 代理转换协议。
-生产路径的核心边界是：服务端保存密文、nonce、AAD、capsule 与验证元数据，
-不保存用户明文、DEK 明文或用户私钥。
+项目将“教学/实验用代理重加密流程”与“可部署的安全工程边界”明确区分：
 
-本轮严格验收加固进一步加入 `CryptoProfile`/profile guard、
-`POLICY_BOUND_PROOF_V1` canonical JSON 证明协议与 proxy signing key
-registry、`HPKE_STYLE_ENVELOPE_V1` 对照封装路径、threshold session/transcript、
-Ed25519 audit checkpoint、撤销 freshness 验证、对象存储接口、幂等契约、
-12 字段 canonical AAD 验证与机器可读 attack matrix。正式 OpenAPI 不再暴露
-RSA/ECC baseline grant 或 transform 路由。
+- `RSA_PRE` 与 `ECC_PRE` 是用于验证工作流和性能对照的 baseline，不是生产级 PRE 承诺。
+- `SECURE_ENVELOPE_V1` 是基于 JCA 原语的直接接收方密钥封装路径。
+- `HPKE_STYLE_ENVELOPE_V1` 是 KEM/KDF/AEAD 风格的对照封装，不宣称 RFC 9180 互操作，也不是 PRE。
+- `POLICY_BOUND_PROOF_V1` 为代理转换结果提供策略、租户、package 和 key-version 绑定证明。
 
-## 目录
+## 核心创新点
 
-- [核心场景](#%E6%A0%B8%E5%BF%83%E5%9C%BA%E6%99%AF)
-- [系统架构](#%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84)
-- [安全模型](#%E5%AE%89%E5%85%A8%E6%A8%A1%E5%9E%8B)
-- [功能亮点](#%E5%8A%9F%E8%83%BD%E4%BA%AE%E7%82%B9)
-- [快速开始](#%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B)
-- [运行模式](#%E8%BF%90%E8%A1%8C%E6%A8%A1%E5%BC%8F)
-- [API 概览](#api-%E6%A6%82%E8%A7%88)
-- [测试与报告](#%E6%B5%8B%E8%AF%95%E4%B8%8E%E6%8A%A5%E5%91%8A)
-- [项目结构](#%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84)
-- [文档索引](#%E6%96%87%E6%A1%A3%E7%B4%A2%E5%BC%95)
-- [当前边界与路线图](#%E5%BD%93%E5%89%8D%E8%BE%B9%E7%95%8C%E4%B8%8E%E8%B7%AF%E7%BA%BF%E5%9B%BE)
-- [上游与原创性说明](#%E4%B8%8A%E6%B8%B8%E4%B8%8E%E5%8E%9F%E5%88%9B%E6%80%A7%E8%AF%B4%E6%98%8E)
+ReKeyShare 不只展示“可以分享密文”，而是把分享后的安全语义做成可测试、可恢复、
+可审计的工程链路。
 
-## 核心场景
+| 创新点 | 设计要点 | 已有证据 |
+| --- | --- | --- |
+| 策略绑定转换证明 | canonical payload 绑定 tenant、data、grant、recipient、package、policy hash、key version、AAD 与 proxy signer epoch | proof tamper/replay 测试 |
+| 重启后仍成立的撤销语义 | `SECURE_LOCAL` 使用 JDBC 持久化 live data/grant/package、proof replay、proxy 状态与 audit；revoke/rotation 后旧 package 在重启后仍失效 | `JdbcLiveRepositoryTest` |
+| 租户级对象授权闭环 | 正式授权入口统一接收 `SecurityContext`，按 `(tenantId, objectId)` 查询；跨租户探测外部不可区分，内部 audit 记录真实原因 | `TenantAuthorizationTest`、API oracle 测试 |
+| 代理机器身份治理 | Proxy 除 bearer subject/角色外，还必须满足 ACTIVE、tenant/scheme allowlist、quota 和注册 credential fingerprint | `ProxyNodeServiceTest` |
+| 可验证共享包与审计 | package manifest 绑定密文、AAD、capsule、policy 与 key version；audit hash-chain 与 proof 支持完整性核验 | package/audit 测试 |
+| Threshold 治理原型 | signed share + context-bound transcript + durable consumed-session replay 防护，验证 `k-of-n` 参与流程 | threshold context/restart 测试 |
+| 攻击证据工程化 | 固定 attack matrix 输出 JSON/CSV/Markdown/raw evidence，CI 保留 SBOM、测试与 checksum artifact | CI 与报告目录 |
 
-ReKeyShare 使用 Alice、Bob、Proxy 与审计管理员四类角色来刻画安全共享流程：
-
-1. Alice 在客户端生成数据密钥 DEK，并使用 AES-GCM 加密文件正文。
-1. Alice 将密文、nonce、AAD、capsule 和元数据提交到服务端。
-1. Alice 为 Bob 创建带策略约束的授权 `ShareGrant`。
-1. 经过注册且处于 `ACTIVE` 状态的 Proxy 只转换 capsule，不接触明文、DEK 或用户私钥。
-1. Bob 下载共享包，在客户端侧解封装 DEK 并完成正文解密。
-1. Charlie 猜测 `dataId`、`grantId`、`packageId` 或跨租户对象时，会被对象级授权拒绝。
-1. Alice 撤销授权后，旧 package 被失效；需要强撤销时，由 owner-side rotation 生成新密文版本。
-1. 关键操作写入 hash-chain audit log，并可导出审计 proof 供复核。
-
-## 系统架构
+## 工作流
 
 ```mermaid
 flowchart LR
-    Owner[Alice / Owner Client] -->|AES-GCM ciphertext + capsule| API[ReKeyShare API]
-    API --> Store[(Ciphertext Storage)]
-    API --> Grant[(Grant / Key / Package Metadata)]
+    Owner[Owner Client] -->|ciphertext + AAD + capsule| API[ReKeyShare API]
+    API --> Store[(Ciphertext / Package State)]
     Owner -->|create grant| API
-    Proxy[Registered Proxy Node] -->|re-encrypt capsule| API
-    API --> Package[Shared Package]
-    Package -->|ciphertext + re-encrypted capsule| Recipient[Bob / Recipient Client]
-    API --> Audit[(Hash-chain Audit Log)]
-    Admin[Auditor] -->|verify proof| API
+    Proxy[Registered Proxy] -->|policy-bound transform| API
+    API --> Package[Verifiable Shared Package]
+    Package -->|ciphertext + transformed capsule| Recipient[Recipient Client]
+    API --> Audit[(Tenant-aware Audit Log)]
+    Auditor[Auditor] -->|verify proof / chain| API
 ```
 
-核心分层如下：
+1. Owner 在客户端生成内容密钥并加密正文，将密文材料上传到服务端。
+2. Owner 创建包含有效期、动作和次数上限的授权。
+3. 注册代理节点通过治理校验后转换 capsule，并签发策略绑定证明。
+4. Recipient 获取共享包，在客户端侧解封装并解密内容。
+5. Owner 撤销授权或轮换内容密钥后，旧 package 被失效。
+6. 安全相关行为进入 tenant-aware audit log，可导出验证证据。
 
-| 层次 | 主要职责 | 代表模块 |
-| --- | --- | --- |
-| API 层 | 路由、认证、错误响应、幂等与限流 | `ReKeyShareApplication` |
-| 领域服务 | 上传、授权、重加密、撤销、审计 | `service/*` |
-| 密码适配 | AEAD、baseline PRE、KDF、hash | `crypto/*` |
-| 模型层 | 用户、数据、授权、共享包、审计事件 | `model/*` |
-| 存储层 | In-memory 演示适配、JDBC 治理元数据/审计适配、快照导出 | `storage/*`、`schema.sql` |
-| 测试与报告 | 安全测试、攻击测试、性能基准、实验输出 | `src/test/*`、`docs/reports/*` |
+## 能力概览
 
-## 安全模型
-
-ReKeyShare 的安全设计围绕“服务端可托管密文和元数据，但不应成为明文保管者”展开。
-
-### 已强制的边界
-
-- 正式上传接口为 `/api/data/upload-encrypted`，接收客户端侧加密后的密文材料。
-- 默认运行模式为 `PRODUCTION`，不会注册 demo 明文解密路由。
-- `/api/shared-packages/{packageId}` 只返回密文、nonce、AAD 与 re-encrypted capsule，不返回 plaintext。
-- 核心业务模型不保存 plaintext 或 plaintext-derived demo hash。
-- `ObjectAuthorizationService` 对 data、grant、package 执行主体、对象、动作三元校验。
-- Proxy 调用重加密接口时必须同时满足 `PROXY` 角色和 `ACTIVE` 节点状态。
-- AES-GCM nonce 通过 `(key fingerprint, nonce)` 注册表检测复用，并提供数据库唯一约束设计。
-- 审计日志使用 hash chain，并通过 proof service 输出 chain root、Merkle root 与签名检查点。
-
-### 明确不承诺的内容
-
-- `RSA_PRE` common modulus 与当前 `ECC_PRE` 都不是生产级 PRE 协议。
-- 授权撤销不能追回接收方已经离线保存的旧明文。
-- 内置 token 服务用于 demo 和课程实验，不等价于完整 OIDC、OAuth2、mTLS 或企业 IAM。
-- 默认 HTTP 服务器使用 In-memory repository 以保持演示可复现；
-  `JdbcGovernanceRepository` 与 `JdbcAuditRepository` 已提供恢复、撤销事务和
-  原子限次验证，部署装配仍需配套对象存储、KMS/HSM 与集中审计系统。
-
-更多细节见 [docs/SECURITY_DESIGN.md](docs/SECURITY_DESIGN.md)、
-[docs/CRYPTO_SCHEME.md](docs/CRYPTO_SCHEME.md) 与
-[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)。
-
-## 功能亮点
-
-| 能力 | 说明 |
+| 类别 | 能力 |
 | --- | --- |
-| 客户端侧加密上传 | `/api/data/upload-encrypted` 保存密文材料，服务端不保留用户明文 |
-| AES-GCM 数据保护 | 支持 nonce 复用检测、AAD 绑定、ciphertext hash 与 chunked encryption 组件 |
-| 密码适配层 | `SchemeDescriptor` 明示 baseline/proof 状态；production 默认选择不得仅为 baseline |
-| 安全封装路径 | `SECURE_ENVELOPE_V1` 使用 JCA 原语，12 个 AAD 字段逐项篡改测试通过 |
-| HPKE-style 封装路径 | `HPKE_STYLE_ENVELOPE_V1` 直接为 recipient 封装内容密钥，拒绝 wrong key/AAD/header/suite；不是 PRE |
-| PRE baseline | 保留 RSA/ECC 两条教学型代理重加密路径，便于流程验证和性能对照 |
-| ECC recipient-share 流程 | 使用 session、challenge、过期时间与签名校验约束接收方份额提交 |
-| 对象级授权 | 对 dataId、grantId、packageId 等对象执行统一访问控制 |
-| 授权策略 | 支持过期时间、访问次数、重加密次数、下载次数、动作集合与 policy hash |
-| 撤销与轮换 | grant revoke 会失效相关 package；owner-side rotation 用新密文版本替换旧授权面 |
-| 代理节点治理 | 代理节点可注册、撤销，并与 token 身份、租户范围绑定 |
-| 可验证共享包 | `SharedPackageV2` 固化签发 manifest，绑定 ciphertext/AAD/capsule/policy/key version |
-| 策略绑定证明 | `PolicyBoundProofVerifier` 以 canonical JSON、registry signer、expiry/replay 与 package context 验证转换结果 |
-| 阈值 signed share | `ThresholdSessionService` 支持 scoped share 与离线 transcript，拒绝错误上下文/epoch/replay |
-| 密钥生命周期 | `KeyLifecycleService` 编排 soft/hard/emergency revoke，rotation 保持 owner-side |
-| 流式验证 | chunk decrypt/verify 与 Merkle root，E03 覆盖 100 MB、heap 记录及修改/删除/重排/AAD 负例 |
-| 可验证审计 | hash-chain audit log、tamper detection、proof export 与 JDBC 重启验证 |
-| API 加固 | Bearer token、统一错误响应、请求体大小限制、幂等键、基础限流 |
-| 代理治理 | 节点状态、tenant 范围、scheme 白名单与 quota |
-| 持久化设计 | JDBC 治理元数据与 audit 可重启恢复；100 并发限次通过原子更新证明不超发 |
-| 实验报告 | 一条命令生成 raw/summary，覆盖 secure envelope、baseline、流式、五类数据分布、篡改与 threshold prototype |
-| 攻击证据 | `AttackMatrixRunner` 输出 JSON/CSV/Markdown/raw，覆盖 IDOR、撤销、proof、AAD、threshold、audit 与幂等冲突 |
+| 加密与封装 | AES-GCM、canonical AAD、ciphertext digest、`SECURE_ENVELOPE_V1`、`HPKE_STYLE_ENVELOPE_V1` |
+| 授权与撤销 | grant policy、action limits、download/decrypt/transform counters、revoke、owner-side rotation |
+| 代理治理 | role、tenant allowlist、scheme allowlist、quota、credential fingerprint binding |
+| 证明与审计 | policy-bound proof、durable replay consume、package manifest、hash-chain audit、audit proof |
+| 持久化 | H2/JDBC live data/grant/package repositories、replay、idempotency、proxy quota、threshold consumed sessions |
+| API 加固 | bearer authentication boundary、稳定错误结构、对象存在性隐藏、请求大小限制、幂等、基础限流 |
+| 质量与证据 | JUnit、JaCoCo line/critical branch gates、SpotBugs、Spotless、CycloneDX SBOM、attack matrix artifacts |
 
-## 快速开始
+## 安全边界
+
+### 已实现
+
+- 正式上传路径 `/api/data/upload-encrypted` 仅接收客户端侧加密材料。
+- 服务端业务对象不保存用户明文或用户私钥。
+- `ObjectAuthorizationService` 的正式路径以 `SecurityContext` 执行 tenant-aware data/grant/package 授权。
+- 不存在对象、他人对象和 wrong-tenant 对象在外部错误响应上使用统一不可访问语义。
+- `SECURE_LOCAL` 装配 durable live repositories；grant revoke 与 owner rotation 的安全状态可跨重启恢复。
+- `PRODUCTION` 与 `SECURE_LOCAL` 禁止使用 in-memory formal proof replay repository。
+- Proxy 使用前验证角色、节点状态、tenant、scheme、quota 与 credential fingerprint。
+
+### 明确不承诺
+
+- Baseline RSA/ECC PRE 不代表经过公开审查的生产密码协议。
+- 撤销不能追回接收方已经离线获得的明文。
+- 内置 token bootstrap 不是完整企业 IAM；当前仅提供本地 JWKS adapter 验证边界，远端 OIDC/JWKS 接入仍待完成。
+- Threshold 路径已经持久防重放，但仍不是独立代理集群或经过审查的 threshold PRE 实现。
+- `PRODUCTION` profile 表达正式 API/密码边界，不等价于已经装配外部 KMS、WORM audit anchor 与多实例数据库的生产平台。
+
+详细边界请阅读 [Security Design](docs/SECURITY_DESIGN.md)、
+[Threat Model](docs/THREAT_MODEL.md) 和
+[Known Limitations](docs/known-limitations.md)。
+
+## 运行模式
+
+| Profile | 用途 | 存储与接口行为 |
+| --- | --- | --- |
+| `production` | 正式边界验证，默认 profile | 禁用 demo 明文与 baseline transformation 路由；formal proof replay 使用 JDBC 边界；外部 IAM/KMS 仍需部署集成 |
+| `secure-local` | 可重启复核的本地安全运行态 | H2/JDBC 持久化 audit、replay、idempotency、proxy、data、grant、package 与 threshold consume；文件对象/本地 key provider |
+| `demo` | 教学与端到端流程演示 | 启用 baseline/plaintext fixture 接口；允许进程内适配器 |
 
 ### 环境要求
 
-- JDK 17 或更高版本
-- Maven 3.9 或更高版本，用于运行完整测试和质量检查
-- Docker 可选，用于容器化启动
+- JDK 17+
+- Maven 3.9+
+- Node.js 20+，仅在运行 Web console 或前端 SBOM 时需要
+- Docker，可选
 
-### 使用 Maven
+## 快速开始
 
-```powershell
-mvn test
-mvn exec:java -Dexec.mainClass=com.example.pre.app.ReKeyShareApplication
-```
-
-启动后访问：
-
-- API 状态页：`http://localhost:8080/`
-- OpenAPI 摘要：`http://localhost:8080/openapi.json`
-- 审计验证入口：`http://localhost:8080/api/audit/verify`
-
-### 不依赖 Maven 的本地编译
+### 运行完整验证
 
 ```powershell
-$files = Get-ChildItem -Recurse -Path src\main\java -Filter *.java
-javac -encoding UTF-8 -d target\classes $files.FullName
-java -cp target\classes com.example.pre.app.ReKeyShareApplication 8080
+mvn verify
 ```
 
-### 使用 Docker Compose
+该命令执行单元/集成测试、JaCoCo gates、SpotBugs、Spotless 与 backend SBOM 生成。
+
+### 启动可演示流程
+
+```powershell
+mvn -q -DskipTests compile
+mvn -q -Drekeyshare.profile=demo exec:java -Dexec.mainClass=com.example.pre.app.ReKeyShareApplication
+```
+
+访问：
+
+- 服务状态：`http://localhost:8080/`
+- OpenAPI：`http://localhost:8080/openapi.json`
+- 审计验证：`http://localhost:8080/api/audit/verify`
+
+### 启动 durable secure-local
+
+```powershell
+$env:REKEYSHARE_PROFILE = 'secure-local'
+$env:REKEYSHARE_LOCAL_TOKEN_SECRET = 'replace-with-at-least-24-local-chars'
+mvn -q -DskipTests compile exec:java -Dexec.mainClass=com.example.pre.app.ReKeyShareApplication
+```
+
+默认持久目录：
+
+| 数据 | 路径 |
+| --- | --- |
+| H2 数据库 | `storage/secure-local/rekeyshare` |
+| 密文对象 | `storage/secure-local/objects` |
+| 本地 key provider | `storage/secure-local/keys/keys.properties` |
+
+### Docker
 
 ```powershell
 docker compose up --build
 ```
 
-`docker-compose.yml` 会将 `storage` 与 `docs/reports` 挂载到容器内，方便保留快照、nonce registry 与实验报告。
-
-## 运行模式
-
-ReKeyShare 区分生产边界和 demo 演示边界。
-
-| 模式 | 启动方式 | 行为 |
-| --- | --- | --- |
-| `PRODUCTION` | 默认模式 | 只接受 `SECURE_ENVELOPE` 正式密文接口；RSA/ECC baseline 与 demo 明文/解密接口不可用 |
-| `DEMO` | `-Drekeyshare.profile=demo` 或 `REKEYSHARE_PROFILE=demo` | 启用课程演示接口，便于端到端正确性验证 |
-
-生产模式：
-
-```powershell
-java -cp target\classes com.example.pre.app.ReKeyShareApplication 8080
-```
-
-Demo 模式：
-
-```powershell
-java -Drekeyshare.profile=demo -cp target\classes com.example.pre.app.ReKeyShareApplication 8080
-```
-
-Demo 模式会启用 `/api/data/upload` 和 `/api/demo/shared-packages/{packageId}/decrypt`。这些接口只用于教学演示和测试正确性，不应出现在生产安全承诺中。
-
 ## API 概览
 
-完整路径可从 `/openapi.json` 查看。下面的 baseline 全链路用于以 `DEMO` profile
-运行的教学/正确性验证；`PRODUCTION` 仅选择 `SECURE_ENVELOPE_V1` 并只持久化注册用户的公钥材料，
-支持客户端侧加密上传，但正式 rekey/解封装须由客户端或 KMS 集成提供，
-不会让服务端代持用户私钥。
+实际可用路由以运行实例的 `/openapi.json` 为准；profile 会控制暴露的功能面。
 
-### 1. 创建用户并获取 token
+| API | 说明 | Profile |
+| --- | --- | --- |
+| `POST /api/data/upload-encrypted` | 上传客户端侧加密后的密文与 capsule | production / secure-local / demo |
+| `GET /api/data/{dataId}` | 读取经过对象授权的 metadata | 全部 |
+| `GET /api/shared-packages/{packageId}` | 下载经过校验的密文共享包 | 全部 |
+| `POST /api/grants/{grantId}/revoke` | 撤销授权并失效相关 package | 全部 |
+| `GET /api/audit/verify` | 验证 audit chain | 全部，需审计角色 |
+| `POST /api/data/upload` | 明文 fixture 上传 | demo only |
+| `POST /api/grants`、`POST /api/proxy/re-encrypt` | baseline 演示授权/转换 | demo only |
+| `GET /api/demo/shared-packages/{packageId}/decrypt` | 明文结果核验 | demo only |
 
-```powershell
-curl -X POST http://localhost:8080/api/users `
-  -H "Content-Type: application/json" `
-  -d '{"userId":"alice","role":"OWNER","algorithm":"SECURE_ENVELOPE"}'
-```
-
-响应会返回 `token`。后续正式接口使用：
+Bearer 形式：
 
 ```http
 Authorization: Bearer <token>
 ```
 
-在 `PRODUCTION` 中该注册过程落库的 key material 不含 private key；服务端生成/轮换私钥的演示行为仅在 `DEMO` 中可用。
+正式部署应将该身份边界替换为受信 OIDC/JWKS 或 mTLS integration。
 
-### 2. 上传客户端侧加密数据
+## 可验证性与测试
 
-```powershell
-curl -X POST http://localhost:8080/api/data/upload-encrypted `
-  -H "Authorization: Bearer <alice-token>" `
-  -H "Content-Type: application/json" `
-  -H "Idempotency-Key: upload-demo-001" `
-  -d '{
-    "algorithm":"SECURE_ENVELOPE",
-    "fileName":"contract.pdf",
-    "contentType":"application/pdf",
-    "encryptedContent":"<base64-ciphertext>",
-    "contentNonce":"<base64-nonce>",
-    "aad":"<base64-aad>",
-    "capsuleHeader":"<base64-header>",
-    "wrappedKey":"<base64-wrapped-key>",
-    "keyNonce":"<base64-key-nonce>",
-    "originalSize":"4096"
-  }'
-```
+### 关键验收
 
-服务端返回 `dataId`、`contentKeyVersion` 与 `ciphertextHash`，不会返回明文。
+| 安全性质 | 验证 |
+| --- | --- |
+| data/grant/package restart persistence | `JdbcLiveRepositoryTest` |
+| revoke + restart 后旧 package 失败 | `JdbcLiveRepositoryTest` |
+| rotation + restart 后旧版本失败 | `JdbcLiveRepositoryTest` |
+| proof 100 并发消费仅一次成功，重启后重放失败 | `JdbcProofReplayRepositoryTest` |
+| tenantA 探测 tenantB 对象被拒绝且可审计 | `TenantAuthorizationTest` |
+| missing 与 unauthorized 对象响应结构不可区分 | `ApiIntegrationTest.enumerationOracleResponsesHaveStableStatusCodeMessageAndSchema` |
+| proxy wrong fingerprint / inactive / wrong scheme / exhausted quota 拒绝 | `ProxyNodeServiceTest` |
+| threshold completed session restart replay 拒绝 | `ThresholdContextBindingTest` |
+| JWKS fixture 的 kid/issuer/audience/expiry/tenant/rotation 校验 | `LocalJwksIdentityProviderAdapterTest` |
 
-### 3. 创建授权
+### 一键证据生成
 
 ```powershell
-curl -X POST http://localhost:8080/api/grants `
-  -H "Authorization: Bearer <alice-token>" `
-  -H "Content-Type: application/json" `
-  -d '{
-    "dataId":"<data-id>",
-    "recipientId":"bob",
-    "maxAccessCount":"5",
-    "maxDownloadCount":"3",
-    "expiresInSeconds":"604800",
-    "allowedActions":"download,decrypt",
-    "purpose":"case-sharing"
-  }'
-```
-
-ECC 授权还可使用 `/api/rekey-sessions`、
-`/api/rekey-sessions/{sessionId}/recipient-share` 与 `/api/grants/ecc`
-完成 recipient-share 工作流。
-
-### 4. 代理重加密
-
-```powershell
-curl -X POST http://localhost:8080/api/proxy/re-encrypt `
-  -H "Authorization: Bearer <proxy-token>" `
-  -H "Content-Type: application/json" `
-  -d '{"grantId":"<grant-id>"}'
-```
-
-代理只获得 `packageId`，不获得用户明文或数据密钥。
-
-### 5. 接收方下载共享包
-
-```powershell
-curl http://localhost:8080/api/shared-packages/<package-id> `
-  -H "Authorization: Bearer <bob-token>"
-```
-
-响应包含 ciphertext、nonce、AAD 与 re-encrypted capsule。Bob 需要在客户端侧完成 decapsulate 和 AES-GCM 解密。
-
-### 6. 撤销与审计
-
-```powershell
-curl -X POST http://localhost:8080/api/grants/<grant-id>/revoke `
-  -H "Authorization: Bearer <alice-token>"
-
-curl http://localhost:8080/api/audit/proof `
-  -H "Authorization: Bearer <admin-token>"
-```
-
-撤销会阻断未来访问并失效相关 package；审计 proof 可用于复核事件链完整性。
-
-## 测试与报告
-
-离线 JSON 复核命令（无需启动 API 服务）：
-
-```powershell
-mvn -q -Dexec.mainClass=com.example.pre.app.VerificationCli -Dexec.args="crypto verify-envelope" exec:java
-mvn -q -Dexec.mainClass=com.example.pre.app.VerificationCli -Dexec.args="audit verify" exec:java
-mvn -q -Dexec.mainClass=com.example.pre.app.VerificationCli -Dexec.args="attack-matrix check" exec:java
-mvn -q -DskipTests compile exec:java -Dexec.mainClass=com.example.pre.experiment.attack.AttackMatrixRunner
-```
-
-常用验证入口：
-
-```powershell
-mvn test
-java -cp target\classes com.example.pre.app.SelfTestApplication
-java -cp target\classes com.example.pre.app.AuditTamperApplication
-java -cp target\classes com.example.pre.app.BenchmarkApplication
-powershell -ExecutionPolicy Bypass -File scripts\run-all-experiments.ps1
 powershell -ExecutionPolicy Bypass -File scripts\verify-all.ps1
 ```
 
-测试与实验资料位于：
+主要证据目录：
 
 | 路径 | 内容 |
 | --- | --- |
-| [docs/reports/L0-L10-test-report.md](docs/reports/L0-L10-test-report.md) | L0 到 L10 实验任务、指标与原始输出索引 |
-| [docs/reports/raw](docs/reports/raw) | 各项实验保留的原始 json、txt、csv 输出 |
-| [docs/reports/security-review-24-fixes.md](docs/reports/security-review-24-fixes.md) | 24 项安全审查问题的处理记录 |
-| [docs/reports/raw](docs/reports/raw) | 分项实验原始 CSV/JSON 与历史原始输出 |
-| [docs/reports/summary](docs/reports/summary) | 本轮可复现实验分析报告 |
-| [docs/reports/raw/e06-revocation-results.json](docs/reports/raw/e06-revocation-results.json) | 撤销、包失效与 key version 轮换证据 |
-| [docs/reports/raw/e10-persistence-recovery-results.json](docs/reports/raw/e10-persistence-recovery-results.json) | JDBC 重启恢复与原子限次证据 |
-| [docs/reports/raw/e14-performance-gate-results.json](docs/reports/raw/e14-performance-gate-results.json) | 保留基线对当前 p95 的性能门禁 |
-| [docs/reports/raw/e03-chunked-aead-results.csv](docs/reports/raw/e03-chunked-aead-results.csv) | 流式 100 MB 与观测 heap 原始数据 |
-| [docs/reports/raw/e15-dataset-distribution-results.csv](docs/reports/raw/e15-dataset-distribution-results.csv) | 五种确定性输入分布各 30 次测量 |
-| [docs/reports/performance-results.csv](docs/reports/performance-results.csv) | 升级前保留的 RSA/ECC baseline 基线数据 |
-| [storage/exports/rekeyshare-snapshot.json](storage/exports/rekeyshare-snapshot.json) | 存储快照导出样例 |
+| [docs/reports/THIRD_ITERATION_PROGRESS.md](docs/reports/THIRD_ITERATION_PROGRESS.md) | 当前迭代已完成与仍受限项目 |
+| [docs/reports/raw](docs/reports/raw) | 实验原始结果 |
+| [docs/reports/summary](docs/reports/summary) | 实验摘要 |
+| [docs/reports/attack-matrix](docs/reports/attack-matrix) | 攻击矩阵 JSON/CSV/Markdown 与分项 raw evidence |
+| [docs/testing/SECOND_ITERATION_TRACEABILITY.md](docs/testing/SECOND_ITERATION_TRACEABILITY.md) | 安全需求到代码、测试、文档的映射 |
 
-Maven 配置中包含 JUnit 5、JaCoCo、SpotBugs 与 OWASP dependency-check，可用于持续质量检查。
-
-## 质量门禁与复现
-
-质量门禁脚本位于 [scripts](scripts)：
-
-- `check-security-boundary.ps1`：生产边界扫描，确保无明文泄露。
-- `check-performance-budget.ps1`：p95 性能回归阈值检查。
-- `check-doc-links.ps1`：文档链接一致性检查。
-
-完整门禁与 CI 说明见 [docs/ops/ci-quality-gates.md](docs/ops/ci-quality-gates.md)。
-一次完整验收会写出 [docs/reports/final-verification.md](docs/reports/final-verification.md)。
-
-## 贡献指南
-
-贡献流程与质量要求见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-## 安全问题反馈
-
-安全问题披露流程见 [SECURITY.md](SECURITY.md)。
-
-## 许可证
-
-本项目采用 MIT License，详见 [LICENSE](LICENSE)。
+CI 会生成并保留测试报告、JaCoCo、SBOM、dependency-check 与 evidence checksum。
+质量门禁说明见 [CI Quality Gates](docs/ops/ci-quality-gates.md)。
 
 ## 项目结构
 
 ```text
 .
-├── src/main/java/com/example/pre
-│   ├── app                 # API 服务、自测、审计篡改演示、benchmark 入口
-│   ├── crypto              # AES-GCM、KDF、hash、RSA/ECC PRE baseline
-│   ├── model               # 用户、数据、授权、共享包、审计等领域模型
-│   ├── service             # 上传、授权、代理、撤销、审计、密钥管理服务
-│   ├── storage             # Repository 接口、内存实现、JDBC audit/governance adapter
-│   └── util                # AAD、JSON、日志脱敏、计时等工具
-├── src/main/resources/db   # 数据库表结构设计
-├── src/test/java           # 单元测试、攻击测试、场景测试、性能测试
-├── docs                    # 设计文档、安全模型、技术方案、测试报告
-├── demo                    # 演示数据与预期输出
-├── storage                 # 本地运行生成的 nonce registry 与快照
-├── Dockerfile
-├── docker-compose.yml
-└── pom.xml
+|-- src/main/java/com/example/pre
+|   |-- app                 # HTTP application 与验证入口
+|   |-- crypto              # AEAD、envelope、proof、threshold、baseline
+|   |-- model               # 数据、授权、package、audit 等领域模型
+|   |-- security            # identity 与 policy 边界
+|   |-- service             # 授权、转换、撤销、审计和生命周期服务
+|   `-- storage             # 内存/JDBC/object-store repository adapters
+|-- src/main/resources/db  # H2/JDBC schema 与 security-state tables
+|-- src/test/java          # 单元、集成、负向与攻击验收测试
+|-- docs                   # 架构、安全、报告与追踪文档
+|-- scripts                # 验证、实验与质量门禁脚本
+|-- app, components        # Next.js Web console
+|-- pom.xml
+`-- package.json
 ```
 
-## 文档索引
+## 文档
 
-- [docs/doc-index.md](docs/doc-index.md)：升级后完整文档导航。
-- [docs/architecture/PROJECT_POSITIONING.md](docs/architecture/PROJECT_POSITIONING.md)：正式产品定位与边界。
-- [docs/crypto/SCHEME_BOUNDARY.md](docs/crypto/SCHEME_BOUNDARY.md)：algorithm suite 分级与禁止声明。
-- [docs/crypto/POLICY_BOUND_PROOF_V1.md](docs/crypto/POLICY_BOUND_PROOF_V1.md)：策略绑定证明协议。
-- [docs/crypto/HPKE_STYLE_ENVELOPE_V1.md](docs/crypto/HPKE_STYLE_ENVELOPE_V1.md)：直接接收方封装路径。
-- [docs/security/ATTACK_MATRIX.md](docs/security/ATTACK_MATRIX.md)：可复现攻击证据模型。
-- [docs/testing/TRACEABILITY_MATRIX.md](docs/testing/TRACEABILITY_MATRIX.md)：新验收项到代码、测试、报告的映射。
-- [docs/traceability-matrix.md](docs/traceability-matrix.md)：需求到代码、测试、报告的追踪矩阵。
-- [docs/architecture.md](docs/architecture.md)：验收要求的架构入口。
-- [docs/crypto/algorithm-spec.md](docs/crypto/algorithm-spec.md)：suite、profile 与安全边界。
-- [docs/crypto/context-binding.md](docs/crypto/context-binding.md)：canonical AAD 的 12 个绑定字段。
-- [docs/audit-proof.md](docs/audit-proof.md)：Ed25519 audit/conversion proof 规范。
-- [docs/revocation-and-rotation.md](docs/revocation-and-rotation.md)：撤销模式与 owner-side rotation。
-- [docs/experiments/result-report.md](docs/experiments/result-report.md)：实测结果入口与结论边界。
-- [docs/experiments/dataset-design.md](docs/experiments/dataset-design.md)：五类可复现实验输入与 hash 证据。
-- [docs/multi-tenant-isolation.md](docs/multi-tenant-isolation.md)：已验证租户边界与部署限制。
-- [docs/secure-coding.md](docs/secure-coding.md)：敏感材料和日志审查规范。
-- [docs/deployment.md](docs/deployment.md)：生产集成与一键复核说明。
-- [docs/architecture/system-architecture.md](docs/architecture/system-architecture.md)：分层、数据流和信任边界。
-- [docs/package-format/v2.md](docs/package-format/v2.md)：可验证共享包 V2 格式。
-- [docs/experiments/experiment-design.md](docs/experiments/experiment-design.md)：复现实验与输出路径。
-- [docs/storage/repository-design.md](docs/storage/repository-design.md)：事务化元数据、恢复与运行装配边界。
-- [docs/SECURITY_DESIGN.md](docs/SECURITY_DESIGN.md)：正式安全边界、客户端侧加密、共享路径、撤销与审计。
-- [docs/CRYPTO_SCHEME.md](docs/CRYPTO_SCHEME.md)：密码方案定位、baseline 限制与生产替换要求。
-- [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)：威胁模型、攻击面与防护目标。
-- [docs/TECHNICAL_PLAN.md](docs/TECHNICAL_PLAN.md)：工程路线、模块拆分与后续增强计划。
-- [docs/design/api-design.md](docs/design/api-design.md)：API 设计说明。
-- [docs/design/security-boundary.md](docs/design/security-boundary.md)：生产与 demo 边界说明。
-- [docs/UPSTREAM_NOTICE.md](docs/UPSTREAM_NOTICE.md)：上游关系与原创性边界说明。
+| 主题 | 文档 |
+| --- | --- |
+| 文档导航与事实来源 | [docs/doc-index.md](docs/doc-index.md) |
+| 架构与信任边界 | [docs/architecture/PROJECT_POSITIONING.md](docs/architecture/PROJECT_POSITIONING.md)、[docs/SECURITY_DESIGN.md](docs/SECURITY_DESIGN.md) |
+| 密码方案定位 | [docs/CRYPTO_SCHEME.md](docs/CRYPTO_SCHEME.md)、[docs/crypto/HPKE_STYLE_ENVELOPE_V1.md](docs/crypto/HPKE_STYLE_ENVELOPE_V1.md) |
+| Proof 与 replay | [docs/security/proof-replay.md](docs/security/proof-replay.md) |
+| 租户与授权隔离 | [docs/multi-tenant-isolation.md](docs/multi-tenant-isolation.md)、[docs/api/authorization-matrix.md](docs/api/authorization-matrix.md) |
+| Proxy 治理 | [docs/security/proxy-governance.md](docs/security/proxy-governance.md) |
+| 存储与运行部署 | [docs/storage/repository-design.md](docs/storage/repository-design.md)、[docs/deployment.md](docs/deployment.md) |
+| 身份适配边界 | [docs/security/identity-provider.md](docs/security/identity-provider.md) |
+| 限制与进展 | [docs/known-limitations.md](docs/known-limitations.md)、[docs/reports/THIRD_ITERATION_PROGRESS.md](docs/reports/THIRD_ITERATION_PROGRESS.md) |
 
-## 当前边界与路线图
+## 路线图
 
-ReKeyShare 目前适合作为数据安全共享系统的课程、竞赛和研究型原型，重点展示“密文托管、授权转换、撤销审计和攻击验证”的完整闭环。
+- 将 HTTP dispatcher 重构为声明式 route registry，并由同一声明生成 OpenAPI 与 profile/auth guard。
+- 将本地 JWKS fixture adapter 接入远端 OIDC/JWKS refresh 与正式 HTTP identity composition。
+- 构建具备独立端口、独立 signing key 与独立失败域的三节点 threshold proxy simulator。
+- 将关键安全类 branch coverage floors 提升到目标门槛，并补充 timing oracle 测量证据。
+- 在真实部署中对接托管数据库、对象存储、KMS/HSM 与不可变 audit anchor。
 
-下一阶段更接近生产系统的工作包括：
+## 贡献与安全
 
-- 将 `RSA_PRE`、`ECC_PRE` baseline 替换为经过公开审查的 HPKE、Threshold PRE 或 Umbral-style 实现。
-- 接入 OIDC、OAuth2、mTLS 或企业 IAM，替换内置 demo token。
-- 将私钥、DEK、KEK 与签名密钥迁移到 KMS、HSM 或客户端安全容器。
-- 在生产 HTTP 装配中启用仓库已提供的 JDBC 治理/审计 adapter，并落实对象存储、迁移与备份恢复运维。
-- 引入跨实例 nonce 分配、集中速率限制、WORM 审计锚定和远程时间戳服务。
-- 完善大文件断点上传、生产对象存储装配和端到端多实例并发压测。
+- 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)
+- 安全漏洞报告：[SECURITY.md](SECURITY.md)
+- 上游与原创性说明：[docs/UPSTREAM_NOTICE.md](docs/UPSTREAM_NOTICE.md)
 
-当前仓库已经实现 chunk 解密/校验、100MB 实验 runner、package V2 与单实例并发限次验证；生产部署仍需落地多实例事务 repository、外部 audit anchor、企业 IAM 与 KMS/HSM。
+## License
 
-完整、明确的未集成生产依赖见
-[docs/known-limitations.md](docs/known-limitations.md)。本仓库不会把
-教学 PRE、threshold 治理原型或尚未部署的外部适配器描述成已上线的生产保证。
-
-## 上游与原创性说明
-
-如果仓库历史显示 fork 来源，应保留上游声明与许可证信息。当前 ReKeyShare 的安全加固工作集中在对象级授权、生产与 demo profile 分离、客户端侧加密上传、撤销与轮换、审计 proof、代理节点治理、nonce registry、持久化表设计和安全测试报告等模块。
-
-详见 [docs/UPSTREAM_NOTICE.md](docs/UPSTREAM_NOTICE.md)。
+ReKeyShare is released under the [MIT License](LICENSE).
