@@ -18,7 +18,7 @@
 | M11/F09 audit proof | implemented | `AuditProofService`, `JdbcAuditRepository` | `AuditProofServiceTest`, `JdbcAuditRepositoryTest` | `security/audit-proof-format.md` |
 | M12 proxy 治理 | implemented | `ProxyNode`, `ProxyNodeService` | `ProxyNodeServiceTest` | `security/proxy-minimum-knowledge.md` |
 | M13 API error/限流/幂等 | implemented | `ReKeyShareApplication` | `ApiIntegrationTest`, E11 | `api/error-model.md`, `api/security-controls.md` |
-| M14/F08 repository | implemented adapter; runtime wiring bounded | `schema.sql`, `JdbcAuditRepository`, `JdbcGovernanceRepository` | `JdbcAuditRepositoryTest`, `JdbcGovernanceRepositoryTest`, E10 | `storage/repository-design.md` |
+| M14/F08 repository | implemented in secure-local live composition | `schema.sql`, `JdbcAuditRepository`, `JdbcDataRepository`, `JdbcGrantRepository`, `JdbcReEncryptedPackageRepository` | `JdbcAuditRepositoryTest`, `JdbcLiveRepositoryTest`, `JdbcGovernanceRepositoryTest`, E10 | `storage/repository-design.md` |
 | M15/F10 benchmark runner | implemented | `BenchmarkApplication`, `EvidenceExperimentApplication` | E01/E02/E03/E04/E13 | `experiments/experiment-design.md` |
 | M16/F11 攻击模拟 | implemented matrix coverage | security/API tests | E04 + `negative/*` | `testing/negative-test-matrix.md` |
 | M17 Docker 加固 | implemented | `Dockerfile`, `docker-compose.yml`, `HealthCheckApplication` | container build in deployment/CI | `ops/container-hardening.md` |
@@ -39,7 +39,7 @@
 | M-017 状态机覆盖 | implemented | `StateTransitionGuard` | exhaustive `StateTransitionGuardTest`, lifecycle tests | `state-machines.md` |
 | M-019 敏感材料输出 | implemented | redacted crypto material `toString`, `LogSanitizer` | `LogSanitizerTest` | `secure-coding.md` |
 | M-020 租户隔离 | partial: JDBC/AAD verified; HTTP/audit tenant wiring bounded | `JdbcGovernanceRepository`, `AadBuilder` | `JdbcGovernanceRepositoryTest`, `CryptoProviderTest` | `multi-tenant-isolation.md` |
-| M-022 持久化一致性 | partial: JDBC adapter/bootstrap verified; HTTP runtime wiring bounded | `JdbcSchemaInitializer`, `JdbcGovernanceRepository` | `JdbcGovernanceRepositoryTest`, `JdbcAuditRepositoryTest` | `database-migration.md` |
+| M-022 持久化一致性 | secure-local live repository/bootstrap verified | `JdbcSchemaInitializer`, `JdbcDataRepository`, `JdbcGrantRepository`, `JdbcReEncryptedPackageRepository` | `JdbcLiveRepositoryTest`, `JdbcGovernanceRepositoryTest`, `JdbcAuditRepositoryTest` | `database-migration-v2.md` |
 | M-023 proxy 持久治理增量 | implemented for `SECURE_LOCAL` | `JdbcProxyNodeRepository`, `ProxyNodeService`, `schema.sql` V003 | `JdbcProxyNodeRepositoryTest` | `storage/repository-design.md` |
 | M-024 manifest 版本防降级 | implemented | `PackageManifest`, `PackageVerifier` | `PackageVerifierTest`, `ApiIntegrationTest` | `package-format/v2.md` |
 | M-026 外部错误稳定化 | implemented | `ErrorResponseMapper` | `ErrorResponseMapperTest`, `ApiIntegrationTest` | `api/error-model.md` |

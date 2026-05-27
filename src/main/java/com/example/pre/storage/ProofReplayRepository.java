@@ -7,9 +7,9 @@ import java.time.Instant;
  * consumption atomic across concurrent verification requests.
  */
 public interface ProofReplayRepository {
-    boolean consume(String tenantId, String proxyId, String keyId, long keyEpoch,
-                    String proofNonce, String canonicalPayloadHash, Instant expiresAt);
+	boolean consume(String tenantId, String proxyId, String keyId, long keyEpoch, String proofNonce,
+			String canonicalPayloadHash, Instant expiresAt);
 
-    default void purgeExpired(Instant now) {
-    }
+	default void purgeExpired(Instant now) {
+	}
 }

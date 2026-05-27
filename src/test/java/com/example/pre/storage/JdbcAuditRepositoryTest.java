@@ -13,24 +13,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JdbcAuditRepositoryTest {
-    @Test
-    void auditChainSurvivesRepositoryRestart() throws Exception {
-        Path database = Path.of("target", "jdbc-test", "audit-" + java.util.UUID.randomUUID());
-        Files.createDirectories(database.getParent());
-        String url = "jdbc:h2:file:" + database.toAbsolutePath() + ";DB_CLOSE_DELAY=0";
-        try (var connection = DriverManager.getConnection(url, "sa", "")) {
-            JdbcSchemaInitializer.initialize(connection);
-        }
-        JdbcAuditRepository first = new JdbcAuditRepository(url, "sa", "");
-        first.record(new AuditEvent(Instant.now(), "alice", "UPLOAD", "data-1", true, "ciphertext")
-                .withTenant("tenant-a"));
-        first.record(new AuditEvent(Instant.now(), "proxy", "REENCRYPT", "pkg-1", true, "capsule")
-                .withTenant("tenant-b"));
+	@Test
+	void auditChainSurvivesRepositoryRestart() throws Exception {
+		Path database = Path.of("target", "jdbc-test", "audit-" + java.util.UUID.randomUUID());
+		Files.createDirectories(database.getParent());
+		String url = "jdbc:h2:file:" + database.toAbsolutePath() + ";DB_CLOSE_DELAY=0";
+		try (var connection = DriverManager.getConnection(url, "sa", "")) {
+			JdbcSchemaInitializer.initialize(connection);
+		}
+		JdbcAuditRepository first = new JdbcAuditRepository(url, "sa", "");
+		first.record(
+				new AuditEvent(Instant.now(), "alice", "UPLOAD", "data-1", true, "ciphertext").withTenant("tenant-a"));
+		first.record(
+				new AuditEvent(Instant.now(), "proxy", "REENCRYPT", "pkg-1", true, "capsule").withTenant("tenant-b"));
 
-        JdbcAuditRepository restarted = new JdbcAuditRepository(url, "sa", "");
-        assertEquals(2, restarted.findAll().size());
-        assertEquals(1, restarted.findByTenant("tenant-a").size());
-        assertEquals(1, restarted.findByTenant("tenant-b").size());
-        assertTrue(AuditService.verifyChain(restarted.findAll()).valid());
-    }
+		JdbcAuditRepository restarted = new JdbcAuditRepository(url, "sa", "");
+		assertEquals(2, restarted.findAll().size());
+		assertEquals(1, restarted.findByTenant("tenant-a").size());
+		assertEquals(1, restarted.findByTenant("tenant-b").size());
+		assertTrue(AuditService.verifyChain(restarted.findAll()).valid());
+	}
 }

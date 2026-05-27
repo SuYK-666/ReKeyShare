@@ -1,5 +1,17 @@
 # Threshold Prototype
 
-`ThresholdSecretSharing` 使用 GF(256) 上的 Shamir sharing 将实验性 re-key material 分为 `n` 份，至少 `k` 份才恢复。E13 覆盖 `k=2,n=3` 和 `k=3,n=5`。
+`ThresholdSecretSharing` applies Shamir sharing over GF(256) to experimental
+re-key material. At least `k` of `n` signed shares are required to reconstruct
+the material. Experiment E13 covers `k=2,n=3` and `k=3,n=5`.
 
-这是创新性与治理流程实验，不是经过证明的 threshold PRE：它未定义分布式代理变换证明、恶意 share 验证或侧信道防护，不能用于 production 安全承诺。
+`ThresholdSessionService` validates signed, context-bound submissions and
+rejects duplicate proxy shares. A successful session is consumed exactly once.
+`JdbcThresholdSessionConsumptionRepository` persists that consumption so an
+aggregator restart cannot replay an already completed session.
+
+Evidence is provided by `ThresholdContextBindingTest`, including insufficient
+shares, duplicates, wrong context and durable replay-after-restart rejection.
+
+This is a governance simulator, not a reviewed threshold PRE protocol or an
+independently deployed proxy cluster. Independent process endpoints and
+external private-key custody remain deployment work.

@@ -23,6 +23,11 @@ replay key, so concurrent inserts allow at most one consumption.
 `purgeExpired(now)` is explicit; an operator may clean rows after proof expiry
 subject to audit retention policy.
 
+`ConversionProofService.assertReplayRepositoryAllowed(...)` is invoked during
+HTTP composition. `PRODUCTION` and `SECURE_LOCAL` reject an injected
+`InMemoryProofReplayRepository`; only `DEMO` may use the process-local adapter.
+`SECURE_LOCAL` stores replay state in its configured H2 file database.
+
 ## Evidence
 
 - `ConversionProofServiceTest`: consume/replay, tenant mismatch and replay audit reason.

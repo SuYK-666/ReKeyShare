@@ -27,8 +27,11 @@ package identifier from a guessed identifier. Both are mapped to external
 `ACCESS_DENIED` with message `object is not accessible`. Internal service
 decisions and audit records retain precise reasons for operator investigation.
 
-`ApiIntegrationTest.apiSupportsManagedSharingFlowAndBlocksPackageIdGuessing`
-asserts the package response class equivalence.
+`ApiIntegrationTest.enumerationOracleResponsesHaveStableStatusCodeMessageAndSchema`
+compares inaccessible and missing data, grant and package targets across HTTP
+status, external code, message and response-field schema. Timing is not
+claimed constant-time; deployments should measure latency distributions under
+their database, network and rate-limit configuration.
 
 ## Security Codes
 

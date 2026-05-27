@@ -14,29 +14,22 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class TamperDetectionTest {
-    @Test
-    void contentTamperingIsRejectedByAesGcm() {
-        EccPreScheme scheme = new EccPreScheme();
-        InMemoryAuditRepository audit = new InMemoryAuditRepository();
-        UserService users = new UserService(scheme, new InMemoryUserRepository(), audit);
-        DataSecurityService data = new DataSecurityService(scheme, new InMemoryDataRepository(), audit);
+	@Test
+	void contentTamperingIsRejectedByAesGcm() {
+		EccPreScheme scheme = new EccPreScheme();
+		InMemoryAuditRepository audit = new InMemoryAuditRepository();
+		UserService users = new UserService(scheme, new InMemoryUserRepository(), audit);
+		DataSecurityService data = new DataSecurityService(scheme, new InMemoryDataRepository(), audit);
 
-        User alice = users.createUser("Alice");
-        EncryptedDataPackage uploaded = data.upload(alice, Bytes.utf8("private"));
-        byte[] tampered = uploaded.encryptedContent().clone();
-        tampered[0] ^= 1;
+		User alice = users.createUser("Alice");
+		EncryptedDataPackage uploaded = data.upload(alice, Bytes.utf8("private"));
+		byte[] tampered = uploaded.encryptedContent().clone();
+		tampered[0] ^= 1;
 
-        EncryptedDataPackage tamperedPackage = new EncryptedDataPackage(
-                uploaded.dataId(),
-                uploaded.ownerId(),
-                uploaded.algorithm(),
-                tampered,
-                uploaded.contentNonce(),
-                uploaded.aad(),
-                uploaded.originalCapsule(),
-                uploaded.createdAt()
-        );
+		EncryptedDataPackage tamperedPackage = new EncryptedDataPackage(uploaded.dataId(), uploaded.ownerId(),
+				uploaded.algorithm(), tampered, uploaded.contentNonce(), uploaded.aad(), uploaded.originalCapsule(),
+				uploaded.createdAt());
 
-        assertThrows(RuntimeException.class, () -> data.decryptOriginal(alice, tamperedPackage));
-    }
+		assertThrows(RuntimeException.class, () -> data.decryptOriginal(alice, tamperedPackage));
+	}
 }

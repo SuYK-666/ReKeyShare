@@ -16,65 +16,65 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PackageVerifierTest {
-    private final SchemeDescriptor descriptor = new SchemeDescriptor("RSA_PRE_BASELINE", "RSA", "EXPERIMENTAL",
-            "test", true, true, false, "NOT_PRODUCTION_REVIEWED", "IMPLEMENTED");
+	private final SchemeDescriptor descriptor = new SchemeDescriptor("RSA_PRE_BASELINE", "RSA", "EXPERIMENTAL", "test",
+			true, true, false, "NOT_PRODUCTION_REVIEWED", "IMPLEMENTED");
 
-    @Test
-    void validatesIssuedV2PackageAndRejectsCiphertextTamper() {
-        ReEncryptedPackage original = fixture(Bytes.utf8("ciphertext"));
-        original = original.withIssuedManifestHash(PackageManifest.issue(original).manifestHash());
-        SharedPackageV2 issued = SharedPackageV2.issue(original, descriptor, Instant.now().plusSeconds(30));
-        PackageVerifier verifier = new PackageVerifier();
-        assertDoesNotThrow(() -> verifier.verify(issued, Instant.now()));
+	@Test
+	void validatesIssuedV2PackageAndRejectsCiphertextTamper() {
+		ReEncryptedPackage original = fixture(Bytes.utf8("ciphertext"));
+		original = original.withIssuedManifestHash(PackageManifest.issue(original).manifestHash());
+		SharedPackageV2 issued = SharedPackageV2.issue(original, descriptor, Instant.now().plusSeconds(30));
+		PackageVerifier verifier = new PackageVerifier();
+		assertDoesNotThrow(() -> verifier.verify(issued, Instant.now()));
 
-        SharedPackageV2 tampered = new SharedPackageV2(issued.packageVersion(), issued.schemeId(),
-                issued.parameterSpec(), issued.proofStatus(), issued.keyVersion(), issued.expiresAt(),
-                fixture(Bytes.utf8("changed-ciphertext")), issued.manifest());
-        ReKeyShareException failure = assertThrows(ReKeyShareException.class,
-                () -> verifier.verify(tampered, Instant.now()));
-        assertEquals(ErrorCode.PACKAGE_INVALID, failure.code());
-    }
+		SharedPackageV2 tampered = new SharedPackageV2(issued.packageVersion(), issued.schemeId(),
+				issued.parameterSpec(), issued.proofStatus(), issued.keyVersion(), issued.expiresAt(),
+				fixture(Bytes.utf8("changed-ciphertext")), issued.manifest());
+		ReKeyShareException failure = assertThrows(ReKeyShareException.class,
+				() -> verifier.verify(tampered, Instant.now()));
+		assertEquals(ErrorCode.PACKAGE_INVALID, failure.code());
+	}
 
-    @Test
-    void rejectsExpiredV2Package() {
-        SharedPackageV2 expired = SharedPackageV2.issue(fixture(Bytes.utf8("ciphertext")), descriptor,
-                Instant.now().minusSeconds(1));
-        assertEquals(ErrorCode.PACKAGE_EXPIRED,
-                assertThrows(ReKeyShareException.class,
-                        () -> new PackageVerifier().verify(expired, Instant.now())).code());
-    }
+	@Test
+	void rejectsExpiredV2Package() {
+		SharedPackageV2 expired = SharedPackageV2.issue(fixture(Bytes.utf8("ciphertext")), descriptor,
+				Instant.now().minusSeconds(1));
+		assertEquals(ErrorCode.PACKAGE_EXPIRED,
+				assertThrows(ReKeyShareException.class, () -> new PackageVerifier().verify(expired, Instant.now()))
+						.code());
+	}
 
-    @Test
-    void rejectsUnknownPackageVersion() {
-        SharedPackageV2 issued = SharedPackageV2.issue(fixture(Bytes.utf8("ciphertext")), descriptor,
-                Instant.now().plusSeconds(30));
-        SharedPackageV2 unknown = new SharedPackageV2("v99", issued.schemeId(), issued.parameterSpec(),
-                issued.proofStatus(), issued.keyVersion(), issued.expiresAt(), issued.payload(), issued.manifest());
-        assertEquals(ErrorCode.PACKAGE_INVALID,
-                assertThrows(ReKeyShareException.class,
-                        () -> new PackageVerifier().verify(unknown, Instant.now())).code());
-    }
+	@Test
+	void rejectsUnknownPackageVersion() {
+		SharedPackageV2 issued = SharedPackageV2.issue(fixture(Bytes.utf8("ciphertext")), descriptor,
+				Instant.now().plusSeconds(30));
+		SharedPackageV2 unknown = new SharedPackageV2("v99", issued.schemeId(), issued.parameterSpec(),
+				issued.proofStatus(), issued.keyVersion(), issued.expiresAt(), issued.payload(), issued.manifest());
+		assertEquals(ErrorCode.PACKAGE_INVALID,
+				assertThrows(ReKeyShareException.class, () -> new PackageVerifier().verify(unknown, Instant.now()))
+						.code());
+	}
 
-    @Test
-    void rejectsDowngradedManifestFormatOrVerifierRequirement() {
-        SharedPackageV2 issued = SharedPackageV2.issue(fixture(Bytes.utf8("ciphertext")), descriptor,
-                Instant.now().plusSeconds(30));
-        PackageManifest manifest = issued.manifest();
-        PackageManifest downgraded = new PackageManifest("1.0", "1.0", manifest.ciphertextHash(),
-                manifest.aadHash(), manifest.capsuleHash(), manifest.policyHash(), manifest.grantContextHash(),
-                manifest.chunkMerkleRoot(), manifest.manifestHash());
-        SharedPackageV2 changed = new SharedPackageV2(issued.packageVersion(), issued.schemeId(),
-                issued.parameterSpec(), issued.proofStatus(), issued.keyVersion(), issued.expiresAt(),
-                issued.payload(), downgraded);
-        assertEquals(ErrorCode.PACKAGE_INVALID,
-                assertThrows(ReKeyShareException.class,
-                        () -> new PackageVerifier().verify(changed, Instant.now())).code());
-    }
+	@Test
+	void rejectsDowngradedManifestFormatOrVerifierRequirement() {
+		SharedPackageV2 issued = SharedPackageV2.issue(fixture(Bytes.utf8("ciphertext")), descriptor,
+				Instant.now().plusSeconds(30));
+		PackageManifest manifest = issued.manifest();
+		PackageManifest downgraded = new PackageManifest("1.0", "1.0", manifest.ciphertextHash(), manifest.aadHash(),
+				manifest.capsuleHash(), manifest.policyHash(), manifest.grantContextHash(), manifest.chunkMerkleRoot(),
+				manifest.manifestHash());
+		SharedPackageV2 changed = new SharedPackageV2(issued.packageVersion(), issued.schemeId(),
+				issued.parameterSpec(), issued.proofStatus(), issued.keyVersion(), issued.expiresAt(), issued.payload(),
+				downgraded);
+		assertEquals(ErrorCode.PACKAGE_INVALID,
+				assertThrows(ReKeyShareException.class, () -> new PackageVerifier().verify(changed, Instant.now()))
+						.code());
+	}
 
-    private static ReEncryptedPackage fixture(byte[] ciphertext) {
-        return new ReEncryptedPackage("data-1", "alice", "bob", AlgorithmType.RSA_PRE,
-                ciphertext, Bytes.utf8("nonce-12byte"), Bytes.utf8("aad"),
-                new EncryptedKeyCapsule(AlgorithmType.RSA_PRE, Bytes.utf8("header"),
-                        Bytes.utf8("wrapped"), Bytes.utf8("keynonce-12b")), Instant.now());
-    }
+	private static ReEncryptedPackage fixture(byte[] ciphertext) {
+		return new ReEncryptedPackage("data-1", "alice", "bob", AlgorithmType.RSA_PRE, ciphertext,
+				Bytes.utf8("nonce-12byte"), Bytes.utf8("aad"), new EncryptedKeyCapsule(AlgorithmType.RSA_PRE,
+						Bytes.utf8("header"), Bytes.utf8("wrapped"), Bytes.utf8("keynonce-12b")),
+				Instant.now());
+	}
 }

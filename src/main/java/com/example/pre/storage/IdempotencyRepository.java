@@ -4,15 +4,15 @@ import java.time.Instant;
 import java.util.Optional;
 
 public interface IdempotencyRepository {
-    record Entry(String scopedKey, String requestHash, Integer status, String responseBody, Instant expiresAt) {
-        public boolean completed() {
-            return status != null;
-        }
-    }
+	record Entry(String scopedKey, String requestHash, Integer status, String responseBody, Instant expiresAt) {
+		public boolean completed() {
+			return status != null;
+		}
+	}
 
-    Optional<Entry> find(String scopedKey, Instant now);
+	Optional<Entry> find(String scopedKey, Instant now);
 
-    boolean begin(Entry pending);
+	boolean begin(Entry pending);
 
-    void complete(String scopedKey, String requestHash, int status, String responseBody);
+	void complete(String scopedKey, String requestHash, int status, String responseBody);
 }

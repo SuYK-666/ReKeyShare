@@ -30,189 +30,192 @@ import java.time.Instant;
 import java.util.Base64;
 
 public final class ConversionProofService {
-    private static final Duration MAX_PROOF_AGE = Duration.ofMinutes(15);
-    private final ProxySigningKeyRegistry signingKeys;
-    private final ProofReplayRepository replayRepository;
-    private final AuditRepository audit;
-    private final ProofPayloadCanonicalizer canonicalizer = new ProofPayloadCanonicalizer();
+	private static final Duration MAX_PROOF_AGE = Duration.ofMinutes(15);
+	private final ProxySigningKeyRegistry signingKeys;
+	private final ProofReplayRepository replayRepository;
+	private final AuditRepository audit;
+	private final ProofPayloadCanonicalizer canonicalizer = new ProofPayloadCanonicalizer();
 
-    public ConversionProofService() {
-        this(new InMemoryProxySigningKeyRegistry(), new InMemoryProofReplayRepository(), null);
-    }
+	public ConversionProofService() {
+		this(new InMemoryProxySigningKeyRegistry(), new InMemoryProofReplayRepository(), null);
+	}
 
-    public ConversionProofService(ProxySigningKeyRegistry signingKeys) {
-        this(signingKeys, new InMemoryProofReplayRepository(), null);
-    }
+	public ConversionProofService(ProxySigningKeyRegistry signingKeys) {
+		this(signingKeys, new InMemoryProofReplayRepository(), null);
+	}
 
-    public ConversionProofService(ProxySigningKeyRegistry signingKeys, ProofReplayRepository replayRepository) {
-        this(signingKeys, replayRepository, null);
-    }
+	public ConversionProofService(ProxySigningKeyRegistry signingKeys, ProofReplayRepository replayRepository) {
+		this(signingKeys, replayRepository, null);
+	}
 
-    public ConversionProofService(ProxySigningKeyRegistry signingKeys, ProofReplayRepository replayRepository,
-                                  AuditRepository audit) {
-        this.signingKeys = signingKeys;
-        this.replayRepository = replayRepository;
-        this.audit = audit;
-    }
+	public ConversionProofService(ProxySigningKeyRegistry signingKeys, ProofReplayRepository replayRepository,
+			AuditRepository audit) {
+		this.signingKeys = signingKeys;
+		this.replayRepository = replayRepository;
+		this.audit = audit;
+	}
 
-    public ConversionProof issue(ReEncryptedPackage dataPackage, ShareGrant grant, String proxyId) {
-        return issue(dataPackage, grant, proxyId, "demo");
-    }
+	public ConversionProof issue(ReEncryptedPackage dataPackage, ShareGrant grant, String proxyId) {
+		return issue(dataPackage, grant, proxyId, "demo");
+	}
 
-    public ConversionProof issue(ReEncryptedPackage dataPackage, ShareGrant grant, String proxyId, String tenantId) {
-        Instant issuedAt = Instant.now();
-        Instant expiresAt = issuedAt.plus(MAX_PROOF_AGE);
-        String nonce = Base64.getEncoder().encodeToString(SecureRandomUtil.randomBytes(16));
-        ProxySigningKeyRecord key = signingKeys.activeForSigning(proxyId, issuedAt);
-        ConversionProof unsigned = new ConversionProof("POLICY_BOUND_PROOF_V1", AlgorithmSuite.POLICY_BOUND_PRE_V1.name(),
-                objectDigest(dataPackage), grantDigest(grant), capsuleDigest(dataPackage), packageDigest(dataPackage),
-                proxyId, issuedAt, nonce, "Ed25519", "", "", tenantId, dataPackage.dataId(),
-                grant.grantId(), grant.ownerId(), grant.recipientId(), dataPackage.packageId(), grant.policyHash(),
-                grant.contentKeyVersion(), Hash.sha256Hex(dataPackage.aad()), key.keyId(), key.keyEpoch(),
-                expiresAt, "");
-        PolicyBoundConversionProof payload = toPolicyBound(unsigned, "");
-        String canonicalHash = canonicalizer.digest(payload);
-        ConversionProof hashed = copyWithSignature(unsigned, "", canonicalHash);
-        return copyWithSignature(hashed, sign(key, toPolicyBound(hashed, canonicalHash)), canonicalHash);
-    }
+	public ConversionProof issue(ReEncryptedPackage dataPackage, ShareGrant grant, String proxyId, String tenantId) {
+		Instant issuedAt = Instant.now();
+		Instant expiresAt = issuedAt.plus(MAX_PROOF_AGE);
+		String nonce = Base64.getEncoder().encodeToString(SecureRandomUtil.randomBytes(16));
+		ProxySigningKeyRecord key = signingKeys.activeForSigning(proxyId, issuedAt);
+		ConversionProof unsigned = new ConversionProof("POLICY_BOUND_PROOF_V1",
+				AlgorithmSuite.POLICY_BOUND_PRE_V1.name(), objectDigest(dataPackage), grantDigest(grant),
+				capsuleDigest(dataPackage), packageDigest(dataPackage), proxyId, issuedAt, nonce, "Ed25519", "", "",
+				tenantId, dataPackage.dataId(), grant.grantId(), grant.ownerId(), grant.recipientId(),
+				dataPackage.packageId(), grant.policyHash(), grant.contentKeyVersion(),
+				Hash.sha256Hex(dataPackage.aad()), key.keyId(), key.keyEpoch(), expiresAt, "");
+		PolicyBoundConversionProof payload = toPolicyBound(unsigned, "");
+		String canonicalHash = canonicalizer.digest(payload);
+		ConversionProof hashed = copyWithSignature(unsigned, "", canonicalHash);
+		return copyWithSignature(hashed, sign(key, toPolicyBound(hashed, canonicalHash)), canonicalHash);
+	}
 
-    public boolean verifyTrusted(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant, Instant now) {
-        return verifyTrusted(proof, dataPackage, grant, proof == null ? "" : proof.tenantId(), now);
-    }
+	public boolean verifyTrusted(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant, Instant now) {
+		return verifyTrusted(proof, dataPackage, grant, proof == null ? "" : proof.tenantId(), now);
+	}
 
-    public boolean verifyTrusted(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant,
-                                 String tenantId, Instant now) {
-        return verifyTrusted(proof, dataPackage, grant, tenantId, now, true);
-    }
+	public boolean verifyTrusted(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant,
+			String tenantId, Instant now) {
+		return verifyTrusted(proof, dataPackage, grant, tenantId, now, true);
+	}
 
-    public boolean verifyTrustedForPackageRead(ConversionProof proof, ReEncryptedPackage dataPackage,
-                                               ShareGrant grant, Instant now) {
-        return verifyTrusted(proof, dataPackage, grant, proof == null ? "" : proof.tenantId(), now, false);
-    }
+	public boolean verifyTrustedForPackageRead(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant,
+			Instant now) {
+		return verifyTrusted(proof, dataPackage, grant, proof == null ? "" : proof.tenantId(), now, false);
+	}
 
-    private boolean verifyTrusted(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant,
-                                  String tenantId, Instant now, boolean consume) {
-        if (proof == null || !matchesContext(proof, dataPackage, grant)) {
-            return false;
-        }
-        if (!tenantId.equals(proof.tenantId())) {
-            return false;
-        }
-        PolicyBoundProofVerifier.Decision decision = new PolicyBoundProofVerifier(signingKeys, replayRepository)
-                .verify(toPolicyBound(proof, proof.canonicalPayloadHash()), now, consume);
-        if (decision == PolicyBoundProofVerifier.Decision.PROOF_REPLAY_DETECTED && audit != null) {
-            audit.record(new AuditEvent(now, proof.proxyId(), "CONVERSION_PROOF_VERIFY_FAILED",
-                    proof.packageId(), false, "PROOF_REPLAY").withTenant(proof.tenantId()));
-        }
-        return decision == PolicyBoundProofVerifier.Decision.ACCEPT;
-    }
+	private boolean verifyTrusted(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant,
+			String tenantId, Instant now, boolean consume) {
+		if (proof == null || !matchesContext(proof, dataPackage, grant)) {
+			return false;
+		}
+		if (!tenantId.equals(proof.tenantId())) {
+			return false;
+		}
+		PolicyBoundProofVerifier.Decision decision = new PolicyBoundProofVerifier(signingKeys, replayRepository)
+				.verify(toPolicyBound(proof, proof.canonicalPayloadHash()), now, consume);
+		if (decision == PolicyBoundProofVerifier.Decision.PROOF_REPLAY_DETECTED && audit != null) {
+			audit.record(new AuditEvent(now, proof.proxyId(), "CONVERSION_PROOF_VERIFY_FAILED", proof.packageId(),
+					false, "PROOF_REPLAY").withTenant(proof.tenantId()));
+		}
+		return decision == PolicyBoundProofVerifier.Decision.ACCEPT;
+	}
 
-    /**
-     * Compatibility verifier for baseline demo fixtures only. Formal package flows use
-     * {@link #verifyTrusted(ConversionProof, ReEncryptedPackage, ShareGrant, Instant)}.
-     */
-    @Deprecated(forRemoval = true)
-    public static boolean verifyLegacyDemo(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant,
-                                           Instant now) {
-        if (proof == null || !"conversion-proof-v1".equals(proof.proofVersion())
-                || !"Ed25519".equals(proof.signatureAlgorithm())
-                || proof.issuedAt().isAfter(now.plusSeconds(30))
-                || proof.issuedAt().plus(MAX_PROOF_AGE).isBefore(now)
-                || !(proof.algorithmSuite().equals(dataPackage.algorithm().name())
-                    || proof.algorithmSuite().equals(AlgorithmSuite.POLICY_BOUND_PRE_V1.name()))
-                || !proof.objectDigest().equals(objectDigest(dataPackage))
-                || !proof.grantDigest().equals(grantDigest(grant))
-                || !proof.capsuleDigest().equals(capsuleDigest(dataPackage))
-                || !proof.packageDigest().equals(packageDigest(dataPackage))) {
-            return false;
-        }
-        try {
-            PublicKey publicKey = KeyFactory.getInstance("Ed25519")
-                    .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(proof.publicKey())));
-            Signature verifier = Signature.getInstance("Ed25519");
-            verifier.initVerify(publicKey);
-            verifier.update(payload(proof).getBytes(StandardCharsets.UTF_8));
-            return verifier.verify(Base64.getDecoder().decode(proof.signature()));
-        } catch (GeneralSecurityException | IllegalArgumentException e) {
-            return false;
-        }
-    }
+	/**
+	 * Compatibility verifier for baseline demo fixtures only. Formal package flows
+	 * use
+	 * {@link #verifyTrusted(ConversionProof, ReEncryptedPackage, ShareGrant, Instant)}.
+	 */
+	@Deprecated(forRemoval = true)
+	public static boolean verifyLegacyDemo(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant,
+			Instant now) {
+		if (proof == null || !"conversion-proof-v1".equals(proof.proofVersion())
+				|| !"Ed25519".equals(proof.signatureAlgorithm()) || proof.issuedAt().isAfter(now.plusSeconds(30))
+				|| proof.issuedAt().plus(MAX_PROOF_AGE).isBefore(now)
+				|| !(proof.algorithmSuite().equals(dataPackage.algorithm().name())
+						|| proof.algorithmSuite().equals(AlgorithmSuite.POLICY_BOUND_PRE_V1.name()))
+				|| !proof.objectDigest().equals(objectDigest(dataPackage))
+				|| !proof.grantDigest().equals(grantDigest(grant))
+				|| !proof.capsuleDigest().equals(capsuleDigest(dataPackage))
+				|| !proof.packageDigest().equals(packageDigest(dataPackage))) {
+			return false;
+		}
+		try {
+			PublicKey publicKey = KeyFactory.getInstance("Ed25519")
+					.generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(proof.publicKey())));
+			Signature verifier = Signature.getInstance("Ed25519");
+			verifier.initVerify(publicKey);
+			verifier.update(payload(proof).getBytes(StandardCharsets.UTF_8));
+			return verifier.verify(Base64.getDecoder().decode(proof.signature()));
+		} catch (GeneralSecurityException | IllegalArgumentException e) {
+			return false;
+		}
+	}
 
-    public static String digest(ConversionProof proof) {
-        return Hash.sha256Hex(payload(proof) + "|" + proof.signature());
-    }
+	public static String digest(ConversionProof proof) {
+		return Hash.sha256Hex(payload(proof) + "|" + proof.signature());
+	}
 
-    public ProxySigningKeyRegistry signingKeys() {
-        return signingKeys;
-    }
+	public ProxySigningKeyRegistry signingKeys() {
+		return signingKeys;
+	}
 
-    private String sign(ProxySigningKeyRecord key, PolicyBoundConversionProof proof) {
-        try {
-            Signature signer = Signature.getInstance("Ed25519");
-            signer.initSign(key.privateKey());
-            signer.update(canonicalizer.canonicalBytes(proof));
-            return Base64.getEncoder().encodeToString(signer.sign());
-        } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("cannot issue conversion proof", e);
-        }
-    }
+	public void assertReplayRepositoryAllowed(String profile) {
+		if (!"DEMO".equalsIgnoreCase(profile) && replayRepository instanceof InMemoryProofReplayRepository) {
+			throw new IllegalStateException(profile + " profile requires durable ProofReplayRepository");
+		}
+	}
 
-    private static String payload(ConversionProof proof) {
-        return String.join("|", proof.proofVersion(), proof.algorithmSuite(), proof.objectDigest(),
-                proof.grantDigest(), proof.capsuleDigest(), proof.packageDigest(), proof.proxyId(),
-                proof.issuedAt().toString(), proof.nonce(), proof.signatureAlgorithm(), proof.publicKey());
-    }
+	private String sign(ProxySigningKeyRecord key, PolicyBoundConversionProof proof) {
+		try {
+			Signature signer = Signature.getInstance("Ed25519");
+			signer.initSign(key.privateKey());
+			signer.update(canonicalizer.canonicalBytes(proof));
+			return Base64.getEncoder().encodeToString(signer.sign());
+		} catch (GeneralSecurityException e) {
+			throw new IllegalStateException("cannot issue conversion proof", e);
+		}
+	}
 
-    private static String objectDigest(ReEncryptedPackage dataPackage) {
-        return Hash.sha256Hex(dataPackage.encryptedContent());
-    }
+	private static String payload(ConversionProof proof) {
+		return String.join("|", proof.proofVersion(), proof.algorithmSuite(), proof.objectDigest(), proof.grantDigest(),
+				proof.capsuleDigest(), proof.packageDigest(), proof.proxyId(), proof.issuedAt().toString(),
+				proof.nonce(), proof.signatureAlgorithm(), proof.publicKey());
+	}
 
-    private static String grantDigest(ShareGrant grant) {
-        return Hash.sha256Hex(String.join("|", grant.grantId(), grant.dataId(), grant.ownerId(), grant.recipientId(),
-                grant.policyHash(), Integer.toString(grant.contentKeyVersion())));
-    }
+	private static String objectDigest(ReEncryptedPackage dataPackage) {
+		return Hash.sha256Hex(dataPackage.encryptedContent());
+	}
 
-    private static String capsuleDigest(ReEncryptedPackage dataPackage) {
-        return Hash.sha256Hex(Bytes.concat(dataPackage.reEncryptedCapsule().header(),
-                dataPackage.reEncryptedCapsule().wrappedKey(), dataPackage.reEncryptedCapsule().keyNonce()));
-    }
+	private static String grantDigest(ShareGrant grant) {
+		return Hash.sha256Hex(String.join("|", grant.grantId(), grant.dataId(), grant.ownerId(), grant.recipientId(),
+				grant.policyHash(), Integer.toString(grant.contentKeyVersion())));
+	}
 
-    private static String packageDigest(ReEncryptedPackage dataPackage) {
-        return PackageManifest.issue(dataPackage).manifestHash();
-    }
+	private static String capsuleDigest(ReEncryptedPackage dataPackage) {
+		return Hash.sha256Hex(Bytes.concat(dataPackage.reEncryptedCapsule().header(),
+				dataPackage.reEncryptedCapsule().wrappedKey(), dataPackage.reEncryptedCapsule().keyNonce()));
+	}
 
-    private static boolean matchesContext(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant) {
-        return "POLICY_BOUND_PROOF_V1".equals(proof.proofVersion())
-                && AlgorithmSuite.POLICY_BOUND_PRE_V1.name().equals(proof.algorithmSuite())
-                && proof.dataId().equals(dataPackage.dataId())
-                && proof.grantId().equals(grant.grantId())
-                && proof.ownerId().equals(grant.ownerId())
-                && proof.recipientId().equals(grant.recipientId())
-                && proof.packageId().equals(dataPackage.packageId())
-                && proof.policyHash().equals(grant.policyHash())
-                && proof.contentKeyVersion() == grant.contentKeyVersion()
-                && proof.objectDigest().equals(objectDigest(dataPackage))
-                && proof.grantDigest().equals(grantDigest(grant))
-                && proof.capsuleDigest().equals(capsuleDigest(dataPackage))
-                && proof.packageDigest().equals(packageDigest(dataPackage))
-                && proof.aadHash().equals(Hash.sha256Hex(dataPackage.aad()));
-    }
+	private static String packageDigest(ReEncryptedPackage dataPackage) {
+		return PackageManifest.issue(dataPackage).manifestHash();
+	}
 
-    private static PolicyBoundConversionProof toPolicyBound(ConversionProof proof, String canonicalHash) {
-        return new PolicyBoundConversionProof(proof.proofVersion(), proof.algorithmSuite(), proof.tenantId(),
-                proof.dataId(), proof.grantId(), proof.ownerId(), proof.recipientId(), proof.proxyId(),
-                proof.packageId(), proof.policyHash(), proof.contentKeyVersion(), proof.capsuleDigest(),
-                proof.objectDigest(), proof.aadHash(), proof.packageDigest(), proof.keyId(), proof.keyEpoch(),
-                proof.issuedAt(), proof.expiresAt(), proof.nonce(), canonicalHash, proof.signatureAlgorithm(),
-                proof.signature());
-    }
+	private static boolean matchesContext(ConversionProof proof, ReEncryptedPackage dataPackage, ShareGrant grant) {
+		return "POLICY_BOUND_PROOF_V1".equals(proof.proofVersion())
+				&& AlgorithmSuite.POLICY_BOUND_PRE_V1.name().equals(proof.algorithmSuite())
+				&& proof.dataId().equals(dataPackage.dataId()) && proof.grantId().equals(grant.grantId())
+				&& proof.ownerId().equals(grant.ownerId()) && proof.recipientId().equals(grant.recipientId())
+				&& proof.packageId().equals(dataPackage.packageId()) && proof.policyHash().equals(grant.policyHash())
+				&& proof.contentKeyVersion() == grant.contentKeyVersion()
+				&& proof.objectDigest().equals(objectDigest(dataPackage))
+				&& proof.grantDigest().equals(grantDigest(grant))
+				&& proof.capsuleDigest().equals(capsuleDigest(dataPackage))
+				&& proof.packageDigest().equals(packageDigest(dataPackage))
+				&& proof.aadHash().equals(Hash.sha256Hex(dataPackage.aad()));
+	}
 
-    private static ConversionProof copyWithSignature(ConversionProof proof, String signature, String canonicalHash) {
-        return new ConversionProof(proof.proofVersion(), proof.algorithmSuite(), proof.objectDigest(),
-                proof.grantDigest(), proof.capsuleDigest(), proof.packageDigest(), proof.proxyId(), proof.issuedAt(),
-                proof.nonce(), proof.signatureAlgorithm(), proof.publicKey(), signature, proof.tenantId(),
-                proof.dataId(), proof.grantId(), proof.ownerId(), proof.recipientId(), proof.packageId(),
-                proof.policyHash(), proof.contentKeyVersion(), proof.aadHash(), proof.keyId(), proof.keyEpoch(),
-                proof.expiresAt(), canonicalHash);
-    }
+	private static PolicyBoundConversionProof toPolicyBound(ConversionProof proof, String canonicalHash) {
+		return new PolicyBoundConversionProof(proof.proofVersion(), proof.algorithmSuite(), proof.tenantId(),
+				proof.dataId(), proof.grantId(), proof.ownerId(), proof.recipientId(), proof.proxyId(),
+				proof.packageId(), proof.policyHash(), proof.contentKeyVersion(), proof.capsuleDigest(),
+				proof.objectDigest(), proof.aadHash(), proof.packageDigest(), proof.keyId(), proof.keyEpoch(),
+				proof.issuedAt(), proof.expiresAt(), proof.nonce(), canonicalHash, proof.signatureAlgorithm(),
+				proof.signature());
+	}
+
+	private static ConversionProof copyWithSignature(ConversionProof proof, String signature, String canonicalHash) {
+		return new ConversionProof(proof.proofVersion(), proof.algorithmSuite(), proof.objectDigest(),
+				proof.grantDigest(), proof.capsuleDigest(), proof.packageDigest(), proof.proxyId(), proof.issuedAt(),
+				proof.nonce(), proof.signatureAlgorithm(), proof.publicKey(), signature, proof.tenantId(),
+				proof.dataId(), proof.grantId(), proof.ownerId(), proof.recipientId(), proof.packageId(),
+				proof.policyHash(), proof.contentKeyVersion(), proof.aadHash(), proof.keyId(), proof.keyEpoch(),
+				proof.expiresAt(), canonicalHash);
+	}
 }

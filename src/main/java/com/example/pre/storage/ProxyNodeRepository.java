@@ -6,11 +6,11 @@ import java.util.Collection;
 import java.util.Optional;
 
 public interface ProxyNodeRepository {
-    void save(ProxyNode node);
+	void save(ProxyNode node);
 
-    Optional<ProxyNode> findById(String proxyId);
+	Optional<ProxyNode> findById(String proxyId);
 
-    Collection<ProxyNode> findAll();
+	Collection<ProxyNode> findAll();
 
-    boolean consumeUse(String proxyId);
+	boolean consumeUse(String proxyId);
 }

@@ -5,31 +5,31 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 public final class SecureRandomUtil {
-    private static final SecureRandom RANDOM = new SecureRandom();
+	private static final SecureRandom RANDOM = new SecureRandom();
 
-    private SecureRandomUtil() {
-    }
+	private SecureRandomUtil() {
+	}
 
-    public static byte[] randomBytes(int length) {
-        byte[] out = new byte[length];
-        RANDOM.nextBytes(out);
-        return out;
-    }
+	public static byte[] randomBytes(int length) {
+		byte[] out = new byte[length];
+		RANDOM.nextBytes(out);
+		return out;
+	}
 
-    public static BigInteger randomInRange(BigInteger minInclusive, BigInteger maxExclusive) {
-        BigInteger span = maxExclusive.subtract(minInclusive);
-        BigInteger candidate;
-        do {
-            candidate = new BigInteger(span.bitLength(), RANDOM);
-        } while (candidate.compareTo(span) >= 0);
-        return candidate.add(minInclusive);
-    }
+	public static BigInteger randomInRange(BigInteger minInclusive, BigInteger maxExclusive) {
+		BigInteger span = maxExclusive.subtract(minInclusive);
+		BigInteger candidate;
+		do {
+			candidate = new BigInteger(span.bitLength(), RANDOM);
+		} while (candidate.compareTo(span) >= 0);
+		return candidate.add(minInclusive);
+	}
 
-    public static SecureRandom random() {
-        return RANDOM;
-    }
+	public static SecureRandom random() {
+		return RANDOM;
+	}
 
-    public static String randomId() {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes(16));
-    }
+	public static String randomId() {
+		return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes(16));
+	}
 }

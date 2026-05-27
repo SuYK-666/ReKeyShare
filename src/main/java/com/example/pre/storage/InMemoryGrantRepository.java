@@ -9,25 +9,25 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class InMemoryGrantRepository implements GrantRepository {
-    private final Map<String, ShareGrant> grants = new LinkedHashMap<>();
+	private final Map<String, ShareGrant> grants = new LinkedHashMap<>();
 
-    @Override
-    public synchronized void save(ShareGrant grant) {
-        grants.put(grant.grantId(), grant);
-    }
+	@Override
+	public synchronized void save(ShareGrant grant) {
+		grants.put(grant.grantId(), grant);
+	}
 
-    @Override
-    public synchronized Optional<ShareGrant> findById(String grantId) {
-        return Optional.ofNullable(grants.get(grantId));
-    }
+	@Override
+	public synchronized Optional<ShareGrant> findById(String grantId) {
+		return Optional.ofNullable(grants.get(grantId));
+	}
 
-    @Override
-    public synchronized Collection<ShareGrant> findAll() {
-        return List.copyOf(grants.values());
-    }
+	@Override
+	public synchronized Collection<ShareGrant> findAll() {
+		return List.copyOf(grants.values());
+	}
 
-    @Override
-    public synchronized Collection<ShareGrant> findByDataId(String dataId) {
-        return grants.values().stream().filter(grant -> grant.dataId().equals(dataId)).toList();
-    }
+	@Override
+	public synchronized Collection<ShareGrant> findByDataId(String dataId) {
+		return grants.values().stream().filter(grant -> grant.dataId().equals(dataId)).toList();
+	}
 }

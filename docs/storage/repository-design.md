@@ -2,7 +2,7 @@
 
 ## Profile Mapping
 
-| Profile | Audit | Proof replay | Idempotency | Ciphertext store | Local key provider |
+| Profile | Audit | Replay/idempotency | Data/grant/package | Ciphertext store | Local key provider |
 | --- | --- | --- | --- | --- | --- |
 | `DEMO` | memory | memory | memory | memory boundary | none |
 | `PRODUCTION` | external deployment boundary | external deployment boundary | external deployment boundary | external deployment boundary | KMS/HSM boundary |
@@ -10,11 +10,11 @@
 
 `SECURE_LOCAL` is the reproducible durable local security-state profile. It
 does not claim an external identity provider, KMS/HSM or immutable audit
-anchor. The current domain object repositories for live data/grant/package
-Live data/grant/package API repositories remain in-memory while
-`JdbcGovernanceRepository` supplies restart/revoke/counter evidence at the
-governance persistence boundary. Proxy node admission and quota state is now
-wired to `JdbcProxyNodeRepository` in `SECURE_LOCAL`.
+anchor. Live HTTP domain state is wired to `JdbcDataRepository`,
+`JdbcGrantRepository` and `JdbcReEncryptedPackageRepository`; these adapters
+persist the encrypted payload/capsule, grant policy and counters, package
+status, and conversion proof required for restart-time authorization.
+Proxy node admission and quota state is wired to `JdbcProxyNodeRepository`.
 
 ## Durable Controls
 
@@ -27,8 +27,11 @@ wired to `JdbcProxyNodeRepository` in `SECURE_LOCAL`.
 - `proxy_nodes`, whose conditional usage update preserves quota and revocation
   state across local restarts;
 - tenant-bearing audit events with indexed tenant queries.
+- complete live encrypted data, grant and package payload/status columns,
+  including key version and conversion proof bindings.
 
 Evidence is provided by `JdbcGovernanceRepositoryTest`,
+`JdbcLiveRepositoryTest`,
 `JdbcProofReplayRepositoryTest`, `JdbcIdempotencyRepositoryTest`,
 `JdbcAuditRepositoryTest`, `JdbcProxyNodeRepositoryTest`, `ObjectStoreTest` and the `SECURE_LOCAL` HTTP
 restart scenario in `ApiIntegrationTest`.

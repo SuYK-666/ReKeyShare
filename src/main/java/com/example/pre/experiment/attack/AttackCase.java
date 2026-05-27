@@ -1,17 +1,17 @@
 package com.example.pre.experiment.attack;
 
 public interface AttackCase {
-    String id();
+	String id();
 
-    String title();
+	String title();
 
-    String mutatedField();
+	String mutatedField();
 
-    String requirementId();
+	String requirementId();
 
-    String externalErrorCode();
+	String externalErrorCode();
 
-    String internalAuditReason();
+	String internalAuditReason();
 
-    boolean rejected();
+	boolean rejected();
 }

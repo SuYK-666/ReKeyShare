@@ -14,30 +14,31 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CapsuleContextBindingTest {
-    @Test
-    void rsaCapsuleBindsWrappedDekToContextAadAndKdf() {
-        RsaPreScheme scheme = new RsaPreScheme(RsaCommonModulusParameters.generate(1024));
-        assertContextBinding(scheme, AlgorithmType.RSA_PRE);
-    }
+	@Test
+	void rsaCapsuleBindsWrappedDekToContextAadAndKdf() {
+		RsaPreScheme scheme = new RsaPreScheme(RsaCommonModulusParameters.generate(1024));
+		assertContextBinding(scheme, AlgorithmType.RSA_PRE);
+	}
 
-    @Test
-    void eccCapsuleBindsWrappedDekToContextAadAndKdf() {
-        EccPreScheme scheme = new EccPreScheme();
-        assertContextBinding(scheme, AlgorithmType.ECC_PRE);
-    }
+	@Test
+	void eccCapsuleBindsWrappedDekToContextAadAndKdf() {
+		EccPreScheme scheme = new EccPreScheme();
+		assertContextBinding(scheme, AlgorithmType.ECC_PRE);
+	}
 
-    private static void assertContextBinding(PreScheme scheme, AlgorithmType algorithm) {
-        UserKeyPair alice = scheme.generateKeyPair("alice");
-        byte[] dataKey = SecureRandomUtil.randomBytes(32);
-        CapsuleContext context = new CapsuleContext("data-1", "alice", "alice", algorithm, "key-1", 1, "policy-a");
-        EncryptedKeyCapsule capsule = scheme.encapsulate(dataKey, alice.publicKey(), context);
-        assertTrue(capsule.aadHash().length() >= 64);
-        assertArrayEquals(dataKey, scheme.decapsulate(capsule, alice.privateKey(), context));
+	private static void assertContextBinding(PreScheme scheme, AlgorithmType algorithm) {
+		UserKeyPair alice = scheme.generateKeyPair("alice");
+		byte[] dataKey = SecureRandomUtil.randomBytes(32);
+		CapsuleContext context = new CapsuleContext("data-1", "alice", "alice", algorithm, "key-1", 1, "policy-a");
+		EncryptedKeyCapsule capsule = scheme.encapsulate(dataKey, alice.publicKey(), context);
+		assertTrue(capsule.aadHash().length() >= 64);
+		assertArrayEquals(dataKey, scheme.decapsulate(capsule, alice.privateKey(), context));
 
-        CapsuleContext wrongData = new CapsuleContext("data-2", "alice", "alice", algorithm, "key-1", 1, "policy-a");
-        assertThrows(IllegalArgumentException.class, () -> scheme.decapsulate(capsule, alice.privateKey(), wrongData));
+		CapsuleContext wrongData = new CapsuleContext("data-2", "alice", "alice", algorithm, "key-1", 1, "policy-a");
+		assertThrows(IllegalArgumentException.class, () -> scheme.decapsulate(capsule, alice.privateKey(), wrongData));
 
-        CapsuleContext wrongPolicy = new CapsuleContext("data-1", "alice", "alice", algorithm, "key-1", 1, "policy-b");
-        assertThrows(IllegalArgumentException.class, () -> scheme.decapsulate(capsule, alice.privateKey(), wrongPolicy));
-    }
+		CapsuleContext wrongPolicy = new CapsuleContext("data-1", "alice", "alice", algorithm, "key-1", 1, "policy-b");
+		assertThrows(IllegalArgumentException.class,
+				() -> scheme.decapsulate(capsule, alice.privateKey(), wrongPolicy));
+	}
 }

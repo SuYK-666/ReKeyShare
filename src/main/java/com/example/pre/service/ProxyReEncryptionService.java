@@ -18,128 +18,89 @@ import com.example.pre.storage.ReEncryptedPackageRepository;
 import java.time.Instant;
 
 public final class ProxyReEncryptionService {
-    private final PreScheme scheme;
-    private final DataRepository dataRepository;
-    private final GrantRepository grantRepository;
-    private final ReEncryptedPackageRepository packageRepository;
-    private final ObjectAuthorizationService authorization;
-    private final AuditRepository audit;
-    private final ConversionProofService conversionProofs;
-    private final ProxyNodeService proxyNodes;
+	private final PreScheme scheme;
+	private final DataRepository dataRepository;
+	private final GrantRepository grantRepository;
+	private final ReEncryptedPackageRepository packageRepository;
+	private final ObjectAuthorizationService authorization;
+	private final AuditRepository audit;
+	private final ConversionProofService conversionProofs;
+	private final ProxyNodeService proxyNodes;
 
-    public ProxyReEncryptionService(
-            PreScheme scheme,
-            DataRepository dataRepository,
-            GrantRepository grantRepository,
-            ReEncryptedPackageRepository packageRepository,
-            ObjectAuthorizationService authorization,
-            AuditRepository audit
-    ) {
-        this(scheme, dataRepository, grantRepository, packageRepository, authorization, audit,
-                new ConversionProofService(), null);
-    }
+	public ProxyReEncryptionService(PreScheme scheme, DataRepository dataRepository, GrantRepository grantRepository,
+			ReEncryptedPackageRepository packageRepository, ObjectAuthorizationService authorization,
+			AuditRepository audit) {
+		this(scheme, dataRepository, grantRepository, packageRepository, authorization, audit,
+				new ConversionProofService(), null);
+	}
 
-    public ProxyReEncryptionService(
-            PreScheme scheme,
-            DataRepository dataRepository,
-            GrantRepository grantRepository,
-            ReEncryptedPackageRepository packageRepository,
-            ObjectAuthorizationService authorization,
-            AuditRepository audit,
-            ConversionProofService conversionProofs
-    ) {
-        this(scheme, dataRepository, grantRepository, packageRepository, authorization, audit, conversionProofs, null);
-    }
+	public ProxyReEncryptionService(PreScheme scheme, DataRepository dataRepository, GrantRepository grantRepository,
+			ReEncryptedPackageRepository packageRepository, ObjectAuthorizationService authorization,
+			AuditRepository audit, ConversionProofService conversionProofs) {
+		this(scheme, dataRepository, grantRepository, packageRepository, authorization, audit, conversionProofs, null);
+	}
 
-    public ProxyReEncryptionService(
-            PreScheme scheme,
-            DataRepository dataRepository,
-            GrantRepository grantRepository,
-            ReEncryptedPackageRepository packageRepository,
-            ObjectAuthorizationService authorization,
-            AuditRepository audit,
-            ConversionProofService conversionProofs,
-            ProxyNodeService proxyNodes
-    ) {
-        this.scheme = scheme;
-        this.dataRepository = dataRepository;
-        this.grantRepository = grantRepository;
-        this.packageRepository = packageRepository;
-        this.authorization = authorization;
-        this.audit = audit;
-        this.conversionProofs = conversionProofs;
-        this.proxyNodes = proxyNodes;
-    }
+	public ProxyReEncryptionService(PreScheme scheme, DataRepository dataRepository, GrantRepository grantRepository,
+			ReEncryptedPackageRepository packageRepository, ObjectAuthorizationService authorization,
+			AuditRepository audit, ConversionProofService conversionProofs, ProxyNodeService proxyNodes) {
+		this.scheme = scheme;
+		this.dataRepository = dataRepository;
+		this.grantRepository = grantRepository;
+		this.packageRepository = packageRepository;
+		this.authorization = authorization;
+		this.audit = audit;
+		this.conversionProofs = conversionProofs;
+		this.proxyNodes = proxyNodes;
+	}
 
-    public ReEncryptedPackage reEncrypt(SecurityContext proxyActor, String grantId) {
-        synchronized (grantRepository) {
-            if (proxyNodes != null) {
-                proxyNodes.assertCanProxy(proxyActor, scheme.algorithm());
-            }
-            ShareGrant grant = authorization.assertCanReEncryptGrant(proxyActor, grantId);
-            EncryptedDataPackage data = dataRepository.findById(grant.dataId())
-                    .orElseThrow(() -> new ReKeyShareException(ErrorCode.DATA_NOT_FOUND, "data not found"));
-            if (data.contentKeyVersion() != grant.contentKeyVersion()) {
-                throw new ReKeyShareException(ErrorCode.KEY_REVOKED, "grant is bound to an old content key version");
-            }
-            var ownerContext = DataSecurityService.capsuleContext(data);
-            var grantContext = DataSecurityService.grantContext(data, grant);
-            ReEncryptionKey reKey = grant.reKey();
-            if (reKey instanceof ScopedReEncryptionKey scoped) {
-                reKey = scoped.consume(grant.grantId(), data.dataId(), grant.recipientId(),
-                        grant.contentKeyVersion(), grant.policyHash(), Instant.now());
-            }
-            EncryptedKeyCapsule transformed = scheme.reEncrypt(data.originalCapsule(), reKey, ownerContext);
-            ReEncryptedPackage dataPackage = new ReEncryptedPackage(
-                    com.example.pre.util.SecureRandomUtil.randomId(),
-                    grant.grantId(),
-                    data.dataId(),
-                    data.ownerId(),
-                    grant.recipientId(),
-                    data.algorithm(),
-                    data.encryptedContent(),
-                    data.contentNonce(),
-                    data.aad(),
-                    transformed,
-                    Instant.now(),
-                    data.contentKeyVersion(),
-                    data.storagePath(),
-                    data.ownerKeyId(),
-                    data.policyHash(),
-                    grant.policyHash(),
-                    data.contextHash(),
-                    com.example.pre.crypto.hash.Hash.sha256Hex(com.example.pre.util.AadBuilder.build(grantContext)),
-                    com.example.pre.util.AadBuilder.build(grantContext),
-                    com.example.pre.model.PackageStatus.ACTIVE,
-                    null,
-                    "",
-                    ""
-            );
-            dataPackage = dataPackage.withIssuedManifestHash(PackageManifest.issue(dataPackage).manifestHash());
-            dataPackage = dataPackage.withConversionProof(conversionProofs.issue(dataPackage, grant,
-                    proxyActor.userId(), proxyActor.tenantId()));
-            packageRepository.save(dataPackage);
-            grantRepository.save(grant.incrementReEncrypt());
-            audit.record(new AuditEvent(Instant.now(), proxyActor.userId(), "PROXY_REENCRYPT", dataPackage.packageId(),
-                    true, "proofDigest=" + ConversionProofService.digest(dataPackage.conversionProof()))
-                    .withTenant(proxyActor.tenantId()));
-            return dataPackage;
-        }
-    }
+	public ReEncryptedPackage reEncrypt(SecurityContext proxyActor, String grantId) {
+		synchronized (grantRepository) {
+			if (proxyNodes != null) {
+				proxyNodes.assertCanProxy(proxyActor, scheme.algorithm());
+			}
+			ShareGrant grant = authorization.assertCanReEncryptGrant(proxyActor, grantId);
+			EncryptedDataPackage data = dataRepository.findByTenantAndId(proxyActor.tenantId(), grant.dataId())
+					.orElseThrow(() -> new ReKeyShareException(ErrorCode.DATA_NOT_FOUND, "data not found"));
+			if (data.contentKeyVersion() != grant.contentKeyVersion()) {
+				throw new ReKeyShareException(ErrorCode.KEY_REVOKED, "grant is bound to an old content key version");
+			}
+			var ownerContext = DataSecurityService.capsuleContext(data);
+			var grantContext = DataSecurityService.grantContext(data, grant);
+			ReEncryptionKey reKey = grant.reKey();
+			if (reKey instanceof ScopedReEncryptionKey scoped) {
+				reKey = scoped.consume(grant.grantId(), data.dataId(), grant.recipientId(), grant.contentKeyVersion(),
+						grant.policyHash(), Instant.now());
+			}
+			EncryptedKeyCapsule transformed = scheme.reEncrypt(data.originalCapsule(), reKey, ownerContext);
+			ReEncryptedPackage dataPackage = new ReEncryptedPackage(com.example.pre.util.SecureRandomUtil.randomId(),
+					grant.grantId(), data.dataId(), data.ownerId(), grant.recipientId(), data.algorithm(),
+					data.encryptedContent(), data.contentNonce(), data.aad(), transformed, Instant.now(),
+					data.contentKeyVersion(), data.storagePath(), data.ownerKeyId(), data.policyHash(),
+					grant.policyHash(), data.contextHash(),
+					com.example.pre.crypto.hash.Hash.sha256Hex(com.example.pre.util.AadBuilder.build(grantContext)),
+					com.example.pre.util.AadBuilder.build(grantContext), com.example.pre.model.PackageStatus.ACTIVE,
+					null, "", "");
+			dataPackage = dataPackage.withTenant(proxyActor.tenantId())
+					.withIssuedManifestHash(PackageManifest.issue(dataPackage).manifestHash());
+			dataPackage = dataPackage.withConversionProof(
+					conversionProofs.issue(dataPackage, grant, proxyActor.userId(), proxyActor.tenantId()));
+			packageRepository.save(dataPackage);
+			grantRepository.save(grant.incrementReEncrypt());
+			audit.record(new AuditEvent(Instant.now(), proxyActor.userId(), "PROXY_REENCRYPT", dataPackage.packageId(),
+					true, "proofDigest=" + ConversionProofService.digest(dataPackage.conversionProof()))
+					.withTenant(proxyActor.tenantId()));
+			return dataPackage;
+		}
+	}
 
-    /**
-     * Demo and legacy tests use a fixed proxy principal. Production API paths must call
-     * the SecurityContext overload so proxy authority comes from a signed role.
-     */
-    public ReEncryptedPackage reEncrypt(String demoProxyActorId, String grantId) {
-        SecurityContext demoProxy = new SecurityContext(
-                demoProxyActorId,
-                UserRole.PROXY,
-                "demo",
-                "demo-fixture",
-                Instant.now().getEpochSecond(),
-                Instant.now().plusSeconds(300).getEpochSecond()
-        );
-        return reEncrypt(demoProxy, grantId);
-    }
+	/**
+	 * Demo and legacy tests use a fixed proxy principal. Production API paths must
+	 * call the SecurityContext overload so proxy authority comes from a signed
+	 * role.
+	 */
+	public ReEncryptedPackage reEncrypt(String demoProxyActorId, String grantId) {
+		SecurityContext demoProxy = new SecurityContext(demoProxyActorId, UserRole.PROXY, "default", "demo-fixture",
+				Instant.now().getEpochSecond(), Instant.now().plusSeconds(300).getEpochSecond());
+		return reEncrypt(demoProxy, grantId);
+	}
 }

@@ -1,4 +1,4 @@
-# Database Migrations Through V003
+# Database Migrations Through V005
 
 `JdbcSchemaInitializer` records applied schema versions in
 `schema_migrations`. The current secure-local bootstrap records:
@@ -8,6 +8,8 @@
 | `V001` | Base governance records: user, data, grant, package and audit baseline |
 | `V002` | Proof replay consumption, durable idempotency and tenant-aware audit indexing |
 | `V003` | Persistent proxy node admission, revoke status and atomic quota usage |
+| `V004` | Complete live encrypted data, grant policy/counter and re-encrypted package/proof restart state |
+| `V005` | Durable threshold session consumption keys for replay rejection after restart |
 
 All DDL uses idempotent `CREATE TABLE IF NOT EXISTS`/`CREATE INDEX IF NOT EXISTS`
 and migration records use `MERGE`, so secure-local restart does not recreate or

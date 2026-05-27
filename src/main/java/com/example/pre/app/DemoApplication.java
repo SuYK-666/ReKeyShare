@@ -32,100 +32,93 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class DemoApplication {
-    private DemoApplication() {
-    }
+	private DemoApplication() {
+	}
 
-    public static void main(String[] args) throws Exception {
-        Files.createDirectories(Path.of("demo/output"));
-        List<String> lines = new ArrayList<>();
-        lines.addAll(runScenario(new RsaPreScheme(RsaCommonModulusParameters.generate(2048))));
-        lines.add("");
-        lines.addAll(runScenario(new EccPreScheme()));
-        Files.write(Path.of("demo/output/demo-result.txt"), lines);
-        lines.forEach(System.out::println);
-    }
+	public static void main(String[] args) throws Exception {
+		Files.createDirectories(Path.of("demo/output"));
+		List<String> lines = new ArrayList<>();
+		lines.addAll(runScenario(new RsaPreScheme(RsaCommonModulusParameters.generate(2048))));
+		lines.add("");
+		lines.addAll(runScenario(new EccPreScheme()));
+		Files.write(Path.of("demo/output/demo-result.txt"), lines);
+		lines.forEach(System.out::println);
+	}
 
-    private static List<String> runScenario(PreScheme scheme) {
-        InMemoryAuditRepository audit = new InMemoryAuditRepository();
-        InMemoryDataRepository dataRepository = new InMemoryDataRepository();
-        InMemoryGrantRepository grantRepository = new InMemoryGrantRepository();
-        InMemoryReEncryptedPackageRepository packageRepository = new InMemoryReEncryptedPackageRepository();
-        UserService users = new UserService(scheme, new InMemoryUserRepository(), audit);
-        DataSecurityService dataService = new DataSecurityService(scheme, dataRepository, audit);
-        AuthorizationService authorizationService = new AuthorizationService(scheme, audit, grantRepository);
-        ObjectAuthorizationService objectAuth = new ObjectAuthorizationService(dataRepository, grantRepository, packageRepository, audit);
-        ProxyReEncryptionService proxy = new ProxyReEncryptionService(scheme, dataRepository, grantRepository, packageRepository, objectAuth, audit);
+	private static List<String> runScenario(PreScheme scheme) {
+		InMemoryAuditRepository audit = new InMemoryAuditRepository();
+		InMemoryDataRepository dataRepository = new InMemoryDataRepository();
+		InMemoryGrantRepository grantRepository = new InMemoryGrantRepository();
+		InMemoryReEncryptedPackageRepository packageRepository = new InMemoryReEncryptedPackageRepository();
+		UserService users = new UserService(scheme, new InMemoryUserRepository(), audit);
+		DataSecurityService dataService = new DataSecurityService(scheme, dataRepository, audit);
+		AuthorizationService authorizationService = new AuthorizationService(scheme, audit, grantRepository);
+		ObjectAuthorizationService objectAuth = new ObjectAuthorizationService(dataRepository, grantRepository,
+				packageRepository, audit);
+		ProxyReEncryptionService proxy = new ProxyReEncryptionService(scheme, dataRepository, grantRepository,
+				packageRepository, objectAuth, audit);
 
-        User alice = users.createUser("Alice");
-        User bob = users.createUser("Bob");
-        User charlie = users.createUser("Charlie");
+		User alice = users.createUser("Alice");
+		User bob = users.createUser("Bob");
+		User charlie = users.createUser("Charlie");
 
-        byte[] plaintext = Bytes.utf8("Confidential course project document: PRE protects cloud data sharing.");
-        EncryptedDataPackage uploaded = dataService.upload(alice, plaintext);
+		byte[] plaintext = Bytes.utf8("Confidential course project document: PRE protects cloud data sharing.");
+		EncryptedDataPackage uploaded = dataService.upload(alice, plaintext);
 
-        boolean bobBefore = canDecryptOriginal(dataService, bob, uploaded);
-        ShareGrant grant = createGrant(scheme, authorizationService, alice, bob, uploaded);
-        ReEncryptedPackage bobPackage = proxy.reEncrypt("proxy", grant.grantId());
-        byte[] bobPlaintext = dataService.decryptReEncrypted(bob, bobPackage);
-        boolean bobAfter = new String(bobPlaintext, StandardCharsets.UTF_8)
-                .equals(new String(plaintext, StandardCharsets.UTF_8));
-        boolean charlieAfter = canDecryptReEncrypted(dataService, charlie, bobPackage);
+		boolean bobBefore = canDecryptOriginal(dataService, bob, uploaded);
+		ShareGrant grant = createGrant(scheme, authorizationService, alice, bob, uploaded);
+		ReEncryptedPackage bobPackage = proxy.reEncrypt("proxy", grant.grantId());
+		byte[] bobPlaintext = dataService.decryptReEncrypted(bob, bobPackage);
+		boolean bobAfter = new String(bobPlaintext, StandardCharsets.UTF_8)
+				.equals(new String(plaintext, StandardCharsets.UTF_8));
+		boolean charlieAfter = canDecryptReEncrypted(dataService, charlie, bobPackage);
 
-        List<String> lines = new ArrayList<>();
-        lines.add("=== " + scheme.name() + " Scenario ===");
-        lines.add("Alice uploads encrypted file: success");
-        lines.add("Ciphertext differs from plaintext: "
-                + !new String(uploaded.encryptedContent(), StandardCharsets.UTF_8).contains("Confidential"));
-        lines.add("Bob decrypts before authorization: " + (bobBefore ? "unexpected success" : "failed"));
-        lines.add("Proxy re-encrypts capsule: success");
-        lines.add("Bob decrypts after authorization: " + (bobAfter ? "success" : "failed"));
-        lines.add("Charlie decrypts after Bob authorization: " + (charlieAfter ? "unexpected success" : "failed"));
-        lines.add("Recovered plaintext: " + new String(bobPlaintext, StandardCharsets.UTF_8));
-        lines.add("Audit log:");
-        for (AuditEvent event : audit.findAll()) {
-            lines.add("  " + event.timestamp() + " " + event.actor() + " " + event.action()
-                    + " " + event.target() + " success=" + event.success());
-        }
-        return lines;
-    }
+		List<String> lines = new ArrayList<>();
+		lines.add("=== " + scheme.name() + " Scenario ===");
+		lines.add("Alice uploads encrypted file: success");
+		lines.add("Ciphertext differs from plaintext: "
+				+ !new String(uploaded.encryptedContent(), StandardCharsets.UTF_8).contains("Confidential"));
+		lines.add("Bob decrypts before authorization: " + (bobBefore ? "unexpected success" : "failed"));
+		lines.add("Proxy re-encrypts capsule: success");
+		lines.add("Bob decrypts after authorization: " + (bobAfter ? "success" : "failed"));
+		lines.add("Charlie decrypts after Bob authorization: " + (charlieAfter ? "unexpected success" : "failed"));
+		lines.add("Recovered plaintext: " + new String(bobPlaintext, StandardCharsets.UTF_8));
+		lines.add("Audit log:");
+		for (AuditEvent event : audit.findAll()) {
+			lines.add("  " + event.timestamp() + " " + event.actor() + " " + event.action() + " " + event.target()
+					+ " success=" + event.success());
+		}
+		return lines;
+	}
 
-    private static ShareGrant createGrant(
-            PreScheme scheme,
-            AuthorizationService authorizationService,
-            User alice,
-            User bob,
-            EncryptedDataPackage uploaded
-    ) {
-        AccessPolicy policy = AccessPolicy.normal(Instant.now().plus(1, ChronoUnit.DAYS));
-        if (scheme instanceof EccPreScheme) {
-            var context = com.example.pre.crypto.ecc.ReKeySessionContext.create();
-            return authorizationService.createGrantWithRecipientShare(
-                    alice,
-                    bob,
-                    uploaded,
-                    policy,
-                    DemoPrivateKeyStore.createEccRecipientShareLocally(bob, context),
-                    context
-            );
-        }
-        return authorizationService.createGrant(alice, bob, uploaded, policy);
-    }
+	private static ShareGrant createGrant(PreScheme scheme, AuthorizationService authorizationService, User alice,
+			User bob, EncryptedDataPackage uploaded) {
+		AccessPolicy policy = AccessPolicy.normal(Instant.now().plus(1, ChronoUnit.DAYS));
+		if (scheme instanceof EccPreScheme) {
+			var context = com.example.pre.crypto.ecc.ReKeySessionContext.create();
+			return authorizationService.createGrantWithRecipientShare(alice, bob, uploaded, policy,
+					DemoPrivateKeyStore.createEccRecipientShareLocally(bob, context), context);
+		}
+		return authorizationService.createGrant(alice, bob, uploaded, policy);
+	}
 
-    private static boolean canDecryptOriginal(DataSecurityService service, User user, EncryptedDataPackage dataPackage) {
-        try {
-            service.decryptOriginal(user, dataPackage);
-            return true;
-        } catch (RuntimeException e) {
-            return false;
-        }
-    }
+	private static boolean canDecryptOriginal(DataSecurityService service, User user,
+			EncryptedDataPackage dataPackage) {
+		try {
+			service.decryptOriginal(user, dataPackage);
+			return true;
+		} catch (RuntimeException e) {
+			return false;
+		}
+	}
 
-    private static boolean canDecryptReEncrypted(DataSecurityService service, User user, ReEncryptedPackage dataPackage) {
-        try {
-            service.decryptReEncrypted(user, dataPackage);
-            return true;
-        } catch (RuntimeException e) {
-            return false;
-        }
-    }
+	private static boolean canDecryptReEncrypted(DataSecurityService service, User user,
+			ReEncryptedPackage dataPackage) {
+		try {
+			service.decryptReEncrypted(user, dataPackage);
+			return true;
+		} catch (RuntimeException e) {
+			return false;
+		}
+	}
 }

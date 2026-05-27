@@ -6,9 +6,13 @@ import java.util.Collection;
 import java.util.Optional;
 
 public interface ReEncryptedPackageRepository {
-    void save(ReEncryptedPackage dataPackage);
+	void save(ReEncryptedPackage dataPackage);
 
-    Optional<ReEncryptedPackage> findById(String packageId);
+	Optional<ReEncryptedPackage> findById(String packageId);
 
-    Collection<ReEncryptedPackage> findAll();
+	Collection<ReEncryptedPackage> findAll();
+
+	default Optional<ReEncryptedPackage> findByTenantAndId(String tenantId, String packageId) {
+		return findById(packageId).filter(dataPackage -> tenantId.equals(dataPackage.tenantId()));
+	}
 }

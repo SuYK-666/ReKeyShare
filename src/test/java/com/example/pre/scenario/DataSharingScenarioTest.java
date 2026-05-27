@@ -32,68 +32,59 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DataSharingScenarioTest {
-    @Test
-    void rsaScenarioWorksEndToEnd() {
-        runScenario(new RsaPreScheme(RsaCommonModulusParameters.generate(1024)));
-    }
+	@Test
+	void rsaScenarioWorksEndToEnd() {
+		runScenario(new RsaPreScheme(RsaCommonModulusParameters.generate(1024)));
+	}
 
-    @Test
-    void eccScenarioWorksEndToEnd() {
-        runScenario(new EccPreScheme());
-    }
+	@Test
+	void eccScenarioWorksEndToEnd() {
+		runScenario(new EccPreScheme());
+	}
 
-    private static void runScenario(PreScheme scheme) {
-        InMemoryAuditRepository audit = new InMemoryAuditRepository();
-        InMemoryDataRepository dataRepository = new InMemoryDataRepository();
-        InMemoryGrantRepository grantRepository = new InMemoryGrantRepository();
-        InMemoryReEncryptedPackageRepository packageRepository = new InMemoryReEncryptedPackageRepository();
-        UserService users = new UserService(scheme, new InMemoryUserRepository(), audit);
-        DataSecurityService data = new DataSecurityService(scheme, dataRepository, audit);
-        AuthorizationService authorization = new AuthorizationService(scheme, audit, grantRepository);
-        ObjectAuthorizationService objectAuth = new ObjectAuthorizationService(dataRepository, grantRepository, packageRepository, audit);
-        ProxyReEncryptionService proxy = new ProxyReEncryptionService(scheme, dataRepository, grantRepository, packageRepository, objectAuth, audit);
+	private static void runScenario(PreScheme scheme) {
+		InMemoryAuditRepository audit = new InMemoryAuditRepository();
+		InMemoryDataRepository dataRepository = new InMemoryDataRepository();
+		InMemoryGrantRepository grantRepository = new InMemoryGrantRepository();
+		InMemoryReEncryptedPackageRepository packageRepository = new InMemoryReEncryptedPackageRepository();
+		UserService users = new UserService(scheme, new InMemoryUserRepository(), audit);
+		DataSecurityService data = new DataSecurityService(scheme, dataRepository, audit);
+		AuthorizationService authorization = new AuthorizationService(scheme, audit, grantRepository);
+		ObjectAuthorizationService objectAuth = new ObjectAuthorizationService(dataRepository, grantRepository,
+				packageRepository, audit);
+		ProxyReEncryptionService proxy = new ProxyReEncryptionService(scheme, dataRepository, grantRepository,
+				packageRepository, objectAuth, audit);
 
-        User alice = users.createUser("Alice");
-        User bob = users.createUser("Bob");
-        User charlie = users.createUser("Charlie");
-        byte[] plaintext = Bytes.utf8("sensitive shared document");
+		User alice = users.createUser("Alice");
+		User bob = users.createUser("Bob");
+		User charlie = users.createUser("Charlie");
+		byte[] plaintext = Bytes.utf8("sensitive shared document");
 
-        EncryptedDataPackage uploaded = data.upload(alice, plaintext);
-        assertFalse(new String(uploaded.encryptedContent()).contains("sensitive shared document"));
-        assertArrayEquals(plaintext, data.decryptOriginal(alice, uploaded));
-        assertThrows(RuntimeException.class, () -> data.decryptOriginal(bob, uploaded));
+		EncryptedDataPackage uploaded = data.upload(alice, plaintext);
+		assertFalse(new String(uploaded.encryptedContent()).contains("sensitive shared document"));
+		assertArrayEquals(plaintext, data.decryptOriginal(alice, uploaded));
+		assertThrows(RuntimeException.class, () -> data.decryptOriginal(bob, uploaded));
 
-        AccessPolicy policy = AccessPolicy.normal(Instant.now().plus(1, ChronoUnit.DAYS));
-        var grant = createGrant(scheme, authorization, alice, bob, uploaded, policy);
-        ReEncryptedPackage reEncrypted = proxy.reEncrypt("proxy", grant.grantId());
-        assertArrayEquals(plaintext, data.decryptReEncrypted(bob, reEncrypted));
-        assertThrows(RuntimeException.class, () -> data.decryptReEncrypted(charlie, reEncrypted));
+		AccessPolicy policy = AccessPolicy.normal(Instant.now().plus(1, ChronoUnit.DAYS));
+		var grant = createGrant(scheme, authorization, alice, bob, uploaded, policy);
+		ReEncryptedPackage reEncrypted = proxy.reEncrypt("proxy", grant.grantId());
+		assertArrayEquals(plaintext, data.decryptReEncrypted(bob, reEncrypted));
+		assertThrows(RuntimeException.class, () -> data.decryptReEncrypted(charlie, reEncrypted));
 
-        List<String> actions = audit.findAll().stream().map(event -> event.action()).toList();
-        assertTrue(actions.contains("KEYGEN"));
-        assertTrue(actions.contains("UPLOAD_ENCRYPTED"));
-        assertTrue(actions.contains("GRANT_CREATE"));
-        assertTrue(actions.contains("PROXY_REENCRYPT"));
-    }
+		List<String> actions = audit.findAll().stream().map(event -> event.action()).toList();
+		assertTrue(actions.contains("KEYGEN"));
+		assertTrue(actions.contains("UPLOAD_ENCRYPTED"));
+		assertTrue(actions.contains("GRANT_CREATE"));
+		assertTrue(actions.contains("PROXY_REENCRYPT"));
+	}
 
-    private static com.example.pre.model.ShareGrant createGrant(
-            PreScheme scheme,
-            AuthorizationService authorization,
-            User alice,
-            User bob,
-            EncryptedDataPackage uploaded,
-            AccessPolicy policy
-    ) {
-        if (scheme instanceof EccPreScheme) {
-            var context = com.example.pre.crypto.ecc.ReKeySessionContext.create();
-            return authorization.createGrantWithRecipientShare(
-                    alice,
-                    bob,
-                    uploaded,
-                    policy,
-                    DemoPrivateKeyStore.createEccRecipientShareLocally(bob, context),
-                    context);
-        }
-        return authorization.createGrant(alice, bob, uploaded, policy);
-    }
+	private static com.example.pre.model.ShareGrant createGrant(PreScheme scheme, AuthorizationService authorization,
+			User alice, User bob, EncryptedDataPackage uploaded, AccessPolicy policy) {
+		if (scheme instanceof EccPreScheme) {
+			var context = com.example.pre.crypto.ecc.ReKeySessionContext.create();
+			return authorization.createGrantWithRecipientShare(alice, bob, uploaded, policy,
+					DemoPrivateKeyStore.createEccRecipientShareLocally(bob, context), context);
+		}
+		return authorization.createGrant(alice, bob, uploaded, policy);
+	}
 }

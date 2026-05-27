@@ -5,11 +5,11 @@ import com.example.pre.model.AuditEvent;
 import java.util.List;
 
 public interface AuditRepository {
-    void record(AuditEvent event);
+	void record(AuditEvent event);
 
-    List<AuditEvent> findAll();
+	List<AuditEvent> findAll();
 
-    default List<AuditEvent> findByTenant(String tenantId) {
-        return findAll().stream().filter(event -> tenantId.equals(event.tenantId())).toList();
-    }
+	default List<AuditEvent> findByTenant(String tenantId) {
+		return findAll().stream().filter(event -> tenantId.equals(event.tenantId())).toList();
+	}
 }

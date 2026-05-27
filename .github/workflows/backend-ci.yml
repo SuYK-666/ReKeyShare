@@ -40,6 +40,11 @@ jobs:
           sh scripts/check-docs-format.sh
           sh scripts/check-doc-links.sh
           sh scripts/check-performance-budget.sh
+      - name: Release evidence checksums
+        run: |
+          sha256sum target/bom.json target/bom-frontend.json \
+            docs/reports/attack-matrix/attack-results.json \
+            docs/reports/attack-matrix/attack-results.md > target/evidence.sha256
       - name: Upload reports and SBOM
         uses: actions/upload-artifact@v4
         with:
@@ -51,9 +56,8 @@ jobs:
             target/bom.json
             target/bom-frontend.json
             target/dependency-check-report.*
+            target/evidence.sha256
             target/surefire-reports
-      - name: Release evidence checksums
-        run: sha256sum target/bom.json target/bom-frontend.json > target/evidence.sha256
       - name: Upload checksums
         uses: actions/upload-artifact@v4
         with:

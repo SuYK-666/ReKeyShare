@@ -8,13 +8,13 @@ import com.example.pre.model.CapsuleContext;
 import com.example.pre.model.UserKeyPair;
 
 public interface CryptoProvider {
-    SchemeDescriptor descriptor();
+	SchemeDescriptor descriptor();
 
-    UserKeyPair generateKeyPair(String userId);
+	UserKeyPair generateKeyPair(String userId);
 
-    EncryptedKeyCapsule encapsulate(byte[] dek, PublicKeyMaterial recipient, CapsuleContext context);
+	EncryptedKeyCapsule encapsulate(byte[] dek, PublicKeyMaterial recipient, CapsuleContext context);
 
-    EncryptedKeyCapsule reEncrypt(EncryptedKeyCapsule capsule, ReEncryptionKey reKey, CapsuleContext context);
+	EncryptedKeyCapsule reEncrypt(EncryptedKeyCapsule capsule, ReEncryptionKey reKey, CapsuleContext context);
 
-    byte[] decapsulate(EncryptedKeyCapsule capsule, PrivateKeyMaterial recipientPrivateKey, CapsuleContext context);
+	byte[] decapsulate(EncryptedKeyCapsule capsule, PrivateKeyMaterial recipientPrivateKey, CapsuleContext context);
 }

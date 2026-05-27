@@ -14,17 +14,17 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class UnauthorizedAccessTest {
-    @Test
-    void recipientCannotDecryptBeforeAuthorization() {
-        EccPreScheme scheme = new EccPreScheme();
-        InMemoryAuditRepository audit = new InMemoryAuditRepository();
-        UserService users = new UserService(scheme, new InMemoryUserRepository(), audit);
-        DataSecurityService data = new DataSecurityService(scheme, new InMemoryDataRepository(), audit);
+	@Test
+	void recipientCannotDecryptBeforeAuthorization() {
+		EccPreScheme scheme = new EccPreScheme();
+		InMemoryAuditRepository audit = new InMemoryAuditRepository();
+		UserService users = new UserService(scheme, new InMemoryUserRepository(), audit);
+		DataSecurityService data = new DataSecurityService(scheme, new InMemoryDataRepository(), audit);
 
-        User alice = users.createUser("Alice");
-        User bob = users.createUser("Bob");
-        EncryptedDataPackage uploaded = data.upload(alice, Bytes.utf8("private"));
+		User alice = users.createUser("Alice");
+		User bob = users.createUser("Bob");
+		EncryptedDataPackage uploaded = data.upload(alice, Bytes.utf8("private"));
 
-        assertThrows(RuntimeException.class, () -> data.decryptOriginal(bob, uploaded));
-    }
+		assertThrows(RuntimeException.class, () -> data.decryptOriginal(bob, uploaded));
+	}
 }

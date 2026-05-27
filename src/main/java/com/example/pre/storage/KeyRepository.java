@@ -6,9 +6,9 @@ import java.util.Collection;
 import java.util.Optional;
 
 public interface KeyRepository {
-    void save(KeyVersion keyVersion);
+	void save(KeyVersion keyVersion);
 
-    Optional<KeyVersion> findById(String keyId);
+	Optional<KeyVersion> findById(String keyId);
 
-    Collection<KeyVersion> findByUserId(String userId);
+	Collection<KeyVersion> findByUserId(String userId);
 }

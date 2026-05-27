@@ -10,39 +10,40 @@ import com.example.pre.model.CapsuleContext;
 import com.example.pre.model.UserKeyPair;
 
 public final class BaselineRsaProvider implements CryptoProvider {
-    private final RsaPreScheme scheme;
+	private final RsaPreScheme scheme;
 
-    public BaselineRsaProvider(int bits) {
-        this.scheme = new RsaPreScheme(RsaCommonModulusParameters.generate(bits));
-    }
+	public BaselineRsaProvider(int bits) {
+		this.scheme = new RsaPreScheme(RsaCommonModulusParameters.generate(bits));
+	}
 
-    public RsaPreScheme scheme() {
-        return scheme;
-    }
+	public RsaPreScheme scheme() {
+		return scheme;
+	}
 
-    @Override
-    public SchemeDescriptor descriptor() {
-        return new SchemeDescriptor("RSA_PRE_BASELINE", "RSA common-modulus transformation", "EXPERIMENTAL",
-                scheme.parameterSpec(), true, true, false, "NOT_PRODUCTION_REVIEWED", "IMPLEMENTED");
-    }
+	@Override
+	public SchemeDescriptor descriptor() {
+		return new SchemeDescriptor("RSA_PRE_BASELINE", "RSA common-modulus transformation", "EXPERIMENTAL",
+				scheme.parameterSpec(), true, true, false, "NOT_PRODUCTION_REVIEWED", "IMPLEMENTED");
+	}
 
-    @Override
-    public UserKeyPair generateKeyPair(String userId) {
-        return scheme.generateKeyPair(userId);
-    }
+	@Override
+	public UserKeyPair generateKeyPair(String userId) {
+		return scheme.generateKeyPair(userId);
+	}
 
-    @Override
-    public EncryptedKeyCapsule encapsulate(byte[] dek, PublicKeyMaterial recipient, CapsuleContext context) {
-        return scheme.encapsulate(dek, recipient, context);
-    }
+	@Override
+	public EncryptedKeyCapsule encapsulate(byte[] dek, PublicKeyMaterial recipient, CapsuleContext context) {
+		return scheme.encapsulate(dek, recipient, context);
+	}
 
-    @Override
-    public EncryptedKeyCapsule reEncrypt(EncryptedKeyCapsule capsule, ReEncryptionKey reKey, CapsuleContext context) {
-        return scheme.reEncrypt(capsule, reKey, context);
-    }
+	@Override
+	public EncryptedKeyCapsule reEncrypt(EncryptedKeyCapsule capsule, ReEncryptionKey reKey, CapsuleContext context) {
+		return scheme.reEncrypt(capsule, reKey, context);
+	}
 
-    @Override
-    public byte[] decapsulate(EncryptedKeyCapsule capsule, PrivateKeyMaterial recipientPrivateKey, CapsuleContext context) {
-        return scheme.decapsulate(capsule, recipientPrivateKey, context);
-    }
+	@Override
+	public byte[] decapsulate(EncryptedKeyCapsule capsule, PrivateKeyMaterial recipientPrivateKey,
+			CapsuleContext context) {
+		return scheme.decapsulate(capsule, recipientPrivateKey, context);
+	}
 }

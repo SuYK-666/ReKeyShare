@@ -6,9 +6,9 @@ import java.util.Collection;
 import java.util.Optional;
 
 public interface UserRepository {
-    void save(User user);
+	void save(User user);
 
-    Optional<User> findById(String userId);
+	Optional<User> findById(String userId);
 
-    Collection<User> findAll();
+	Collection<User> findAll();
 }

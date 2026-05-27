@@ -15,19 +15,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuditAnchorServiceTest {
-    @Test
-    void appendsSignedCheckpointsAndDetectsDifferentLocalRoot(@TempDir Path directory) throws Exception {
-        Path log = directory.resolve("anchor.log");
-        AuditProofService proofs = new AuditProofService();
-        AuditAnchorService anchor = new AuditAnchorService(proofs, log);
-        InMemoryAuditRepository audit = new InMemoryAuditRepository();
-        audit.record(new AuditEvent(Instant.now(), "alice", "UPLOAD", "data", true, "ok").withTenant("tenant-a"));
-        var first = anchor.anchor(audit.findAll());
-        assertTrue(proofs.verifyProof(first));
-        audit.record(new AuditEvent(Instant.now(), "proxy", "REENCRYPT", "pkg", true, "ok").withTenant("tenant-a"));
-        var second = anchor.anchor(audit.findAll());
-        assertTrue(proofs.verifyProof(second));
-        assertEquals(2, Files.readAllLines(log).size());
-        assertTrue(!first.chainRoot().equals(second.chainRoot()));
-    }
+	@Test
+	void appendsSignedCheckpointsAndDetectsDifferentLocalRoot(@TempDir Path directory) throws Exception {
+		Path log = directory.resolve("anchor.log");
+		AuditProofService proofs = new AuditProofService();
+		AuditAnchorService anchor = new AuditAnchorService(proofs, log);
+		InMemoryAuditRepository audit = new InMemoryAuditRepository();
+		audit.record(new AuditEvent(Instant.now(), "alice", "UPLOAD", "data", true, "ok").withTenant("tenant-a"));
+		var first = anchor.anchor(audit.findAll());
+		assertTrue(proofs.verifyProof(first));
+		audit.record(new AuditEvent(Instant.now(), "proxy", "REENCRYPT", "pkg", true, "ok").withTenant("tenant-a"));
+		var second = anchor.anchor(audit.findAll());
+		assertTrue(proofs.verifyProof(second));
+		assertEquals(2, Files.readAllLines(log).size());
+		assertTrue(!first.chainRoot().equals(second.chainRoot()));
+	}
 }

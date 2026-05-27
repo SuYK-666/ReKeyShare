@@ -28,6 +28,9 @@ The CI workflow uploads:
 - target/evidence.sha256
 - target/surefire-reports
 
+Checksums cover both backend/frontend SBOMs and regenerated attack-matrix JSON
+and Markdown evidence before the main evidence artifact is uploaded.
+
 Dependency-Check runs as a network-backed CI release gate; local `mvn verify`
 remains usable when vulnerability feeds are unavailable. Maven and npm SBOMs
 are retained with SHA-256 release evidence.
