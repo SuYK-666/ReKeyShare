@@ -11,8 +11,10 @@
 `SECURE_LOCAL` is the reproducible durable local security-state profile. It
 does not claim an external identity provider, KMS/HSM or immutable audit
 anchor. The current domain object repositories for live data/grant/package
-API operations remain in-memory while `JdbcGovernanceRepository` supplies
-restart/revoke/counter evidence at the governance persistence boundary.
+Live data/grant/package API repositories remain in-memory while
+`JdbcGovernanceRepository` supplies restart/revoke/counter evidence at the
+governance persistence boundary. Proxy node admission and quota state is now
+wired to `JdbcProxyNodeRepository` in `SECURE_LOCAL`.
 
 ## Durable Controls
 
@@ -22,9 +24,11 @@ restart/revoke/counter evidence at the governance persistence boundary.
 - unique nonce allocation records;
 - `proof_replay_consumptions`, whose primary key atomically rejects duplicate formal proof consumption;
 - `idempotency_requests`, which retains response bodies across local restarts;
+- `proxy_nodes`, whose conditional usage update preserves quota and revocation
+  state across local restarts;
 - tenant-bearing audit events with indexed tenant queries.
 
 Evidence is provided by `JdbcGovernanceRepositoryTest`,
 `JdbcProofReplayRepositoryTest`, `JdbcIdempotencyRepositoryTest`,
-`JdbcAuditRepositoryTest`, `ObjectStoreTest` and the `SECURE_LOCAL` HTTP
+`JdbcAuditRepositoryTest`, `JdbcProxyNodeRepositoryTest`, `ObjectStoreTest` and the `SECURE_LOCAL` HTTP
 restart scenario in `ApiIntegrationTest`.

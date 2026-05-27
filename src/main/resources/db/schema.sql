@@ -101,11 +101,24 @@ CREATE TABLE IF NOT EXISTS proxy_nodes (
   proxy_id VARCHAR(128) NOT NULL,
   status VARCHAR(32) NOT NULL,
   signing_public_key VARCHAR(512),
+  certificate_fingerprint VARCHAR(512) NOT NULL DEFAULT '',
+  allowed_tenant_ids VARCHAR(1024) NOT NULL DEFAULT '*',
+  allowed_scheme_ids VARCHAR(512) NOT NULL DEFAULT '',
   quota BIGINT NOT NULL,
   usage_count BIGINT NOT NULL,
+  suspended_reason VARCHAR(256) NOT NULL DEFAULT '',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  revoked_at TIMESTAMP,
   updated_at TIMESTAMP NOT NULL,
   PRIMARY KEY (tenant_id, proxy_id)
 );
+
+ALTER TABLE proxy_nodes ADD COLUMN IF NOT EXISTS certificate_fingerprint VARCHAR(512) NOT NULL DEFAULT '';
+ALTER TABLE proxy_nodes ADD COLUMN IF NOT EXISTS allowed_tenant_ids VARCHAR(1024) NOT NULL DEFAULT '*';
+ALTER TABLE proxy_nodes ADD COLUMN IF NOT EXISTS allowed_scheme_ids VARCHAR(512) NOT NULL DEFAULT '';
+ALTER TABLE proxy_nodes ADD COLUMN IF NOT EXISTS suspended_reason VARCHAR(256) NOT NULL DEFAULT '';
+ALTER TABLE proxy_nodes ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE proxy_nodes ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP;
 
 CREATE TABLE IF NOT EXISTS idempotency_records (
   tenant_id VARCHAR(128) NOT NULL,

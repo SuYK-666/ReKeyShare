@@ -1,17 +1,17 @@
 # E03 Chunked AEAD Scalability
 
-- Commit: `628cb38`
+- Commit: `22bc6b5`
 - JDK: `25.0.2`
 - OS: `Windows 11 10.0`
-- Generated: `2026-05-26T16:34:29.565825400Z`
+- Generated: `2026-05-27T01:54:05.561671900Z`
 
 The streaming pipeline measured 30 runs each for 1 MB, 10 MB and 100 MB ciphertext streams. The reproducible runner executes this experiment in a warmed `-Xmx12m` child JVM with a 128 KiB plaintext chunk. Raw rows record an observed heap peak delta and the configured plaintext buffer. Measurements use natural JVM collection behavior after warmup; observations include GC sampling noise and are interpreted with that constraint stated.
 
 | File size | Max observed heap delta / file | Interpretation |
 | ---: | ---: | --- |
-| 1 MB | 498.5191% | fixed JVM overhead dominates |
-| 10 MB | 56.2612% | planning range not met on this JVM |
-| 100 MB | 5.5359% | PASS strict `<20%` gate |
+| 1 MB | 510.8429% | fixed JVM overhead dominates |
+| 10 MB | 56.3302% | planning range not met on this JVM |
+| 100 MB | 5.9389% | PASS strict `<20%` gate |
 
 Tamper evidence: modification, deletion, reordering and AAD/context replacement were rejected (4/4).
 

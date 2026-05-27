@@ -40,6 +40,11 @@
 | M-019 敏感材料输出 | implemented | redacted crypto material `toString`, `LogSanitizer` | `LogSanitizerTest` | `secure-coding.md` |
 | M-020 租户隔离 | partial: JDBC/AAD verified; HTTP/audit tenant wiring bounded | `JdbcGovernanceRepository`, `AadBuilder` | `JdbcGovernanceRepositoryTest`, `CryptoProviderTest` | `multi-tenant-isolation.md` |
 | M-022 持久化一致性 | partial: JDBC adapter/bootstrap verified; HTTP runtime wiring bounded | `JdbcSchemaInitializer`, `JdbcGovernanceRepository` | `JdbcGovernanceRepositoryTest`, `JdbcAuditRepositoryTest` | `database-migration.md` |
+| M-023 proxy 持久治理增量 | implemented for `SECURE_LOCAL` | `JdbcProxyNodeRepository`, `ProxyNodeService`, `schema.sql` V003 | `JdbcProxyNodeRepositoryTest` | `storage/repository-design.md` |
+| M-024 manifest 版本防降级 | implemented | `PackageManifest`, `PackageVerifier` | `PackageVerifierTest`, `ApiIntegrationTest` | `package-format/v2.md` |
+| M-026 外部错误稳定化 | implemented | `ErrorResponseMapper` | `ErrorResponseMapperTest`, `ApiIntegrationTest` | `api/error-model.md` |
+| M-027 固定攻击数据集 | implemented | `AttackEvidenceWriter`, `AttackDatasetFactory` | `AttackMatrixRunnerTest` | `testing/security-fixtures-v2.md` |
+| M-028 供应链证据 | configured in CI | `backend-ci.yml` | CI Dependency-Check/SBOM/checksum steps | `ops/dependency-license-policy.md` |
 
 ## Production Integration Boundary
 

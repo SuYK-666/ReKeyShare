@@ -29,4 +29,6 @@ the underlying controls; the runner preserves the decision ledger.
 
 Run `AttackMatrixRunner` to create JSON, CSV, Markdown and per-case JSON under
 `docs/reports/attack-matrix`. Every negative case records expected and actual
-decisions, stable error code and internal audit reason.
+decisions, stable error code, internal audit reason and
+`datasetVersion=security-fixtures-v2`. Fixed principal/object ownership
+expectations are documented in `../testing/security-fixtures-v2.md`.

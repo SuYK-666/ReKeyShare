@@ -48,6 +48,8 @@ class ApiIntegrationTest {
             assertTrue(bobDownload.body().contains("\"ciphertextStoragePath\""));
             assertTrue(bobDownload.body().contains("\"packageVersion\":\"v2\""));
             assertTrue(bobDownload.body().contains("\"manifestHash\""));
+            assertTrue(bobDownload.body().contains("\"manifestFormatVersion\":\"2.0\""));
+            assertTrue(bobDownload.body().contains("\"minVerifierVersion\":\"2.0\""));
             assertTrue(bobDownload.body().contains("\"schemeId\":\"RSA_PRE_BASELINE\""));
             assertTrue(bobDownload.body().contains("\"securityLevel\":\"EXPERIMENTAL\""));
             assertTrue(bobDownload.body().contains("\"conversionProofDigest\""));
@@ -411,7 +413,7 @@ class ApiIntegrationTest {
                 assertEquals(201, replay.statusCode());
                 assertEquals(firstBody, replay.body());
                 assertTrue(get(base + "/api/audit/verify", adminToken).body().contains("\"valid\":true"));
-                assertTrue(get(base + "/api/storage/status", adminToken).body().contains("secure-local:h2-audit+replay+idempotency"));
+                assertTrue(get(base + "/api/storage/status", adminToken).body().contains("secure-local:h2-audit+replay+idempotency+proxy"));
             } finally {
                 restarted.stop();
             }

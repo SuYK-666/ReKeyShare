@@ -18,6 +18,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 Invoke-Maven -q "-Dexec.mainClass=com.example.pre.app.ConcurrencyExperimentApplication" "-Drekeyshare.nonce.registry=target/experiment/aes-gcm-nonces.txt" "-Drekeyshare.commit=$commit" exec:java
 Invoke-Maven -q "-Dexec.mainClass=com.example.pre.app.ComplianceExperimentApplication" "-Drekeyshare.commit=$commit" exec:java
+Invoke-Maven -q "-Dexec.mainClass=com.example.pre.experiment.attack.AttackMatrixRunner" exec:java
 
 Write-Host "Raw evidence: docs/reports/raw/"
 Write-Host "Summaries: docs/reports/summary/"

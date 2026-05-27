@@ -12,7 +12,7 @@ production infrastructure.
 | --- | --- | --- |
 | Unit/integration suite | PASS | `mvn test` |
 | Static/coverage/build quality | PASS | `mvn verify` after JDK 25-compatible SpotBugs upgrade |
-| Attack decision ledger | PASS, 13/13 rejected as expected | `../attack-matrix/attack-results.json` |
+| Attack decision ledger | PASS, 40/40 rejected as expected | `../attack-matrix/attack-results.json` |
 | E-01 through E-12 indexed evidence | PASS for executable repository controls | `raw/E-*.json` |
 
 ## Analysis

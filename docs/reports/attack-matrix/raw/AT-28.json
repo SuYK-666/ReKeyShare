@@ -1,3 +1,3 @@
 [
-  {"experimentId":"ATTACK-MATRIX","caseId":"AT-28","requirementId":"R-PROOF-001","mutatedField":"keyId","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"PROOF_INVALID","internalAuditReason":"PROOF_SIGNER_UNKNOWN","auditEventId":"audit-AT-28","evidencePath":"docs/reports/attack-matrix/raw/AT-28.json","passed":true}
+  {"datasetVersion":"security-fixtures-v2","experimentId":"ATTACK-MATRIX","caseId":"AT-28","requirementId":"R-PROOF-001","mutatedField":"keyId","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"PROOF_INVALID","internalAuditReason":"PROOF_SIGNER_UNKNOWN","auditEventId":"audit-AT-28","evidencePath":"docs/reports/attack-matrix/raw/AT-28.json","passed":true}
 ]

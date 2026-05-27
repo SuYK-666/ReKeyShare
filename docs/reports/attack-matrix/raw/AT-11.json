@@ -1,3 +1,3 @@
 [
-  {"experimentId":"ATTACK-MATRIX","caseId":"AT-11","requirementId":"R-BOLA-001","mutatedField":"tenantId","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"OBJECT_NOT_ACCESSIBLE","internalAuditReason":"TENANT_SCOPE_REJECTED","auditEventId":"audit-AT-11","evidencePath":"docs/reports/attack-matrix/raw/AT-11.json","passed":true}
+  {"datasetVersion":"security-fixtures-v2","experimentId":"ATTACK-MATRIX","caseId":"AT-11","requirementId":"R-BOLA-001","mutatedField":"tenantId","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"OBJECT_NOT_ACCESSIBLE","internalAuditReason":"TENANT_SCOPE_REJECTED","auditEventId":"audit-AT-11","evidencePath":"docs/reports/attack-matrix/raw/AT-11.json","passed":true}
 ]

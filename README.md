@@ -5,7 +5,10 @@
 The 2026-05-27 measured iteration adds persistent proof replay consumption
 adapters, formal-proof tenant binding from `SecurityContext`, service-layer
 proxy admission enforcement, tenant-aware audit hashing/query support,
-object-enumeration-safe external errors and a bounded HTTP executor.
+object-enumeration-safe external errors and a bounded HTTP executor. Continued
+work adds durable `SECURE_LOCAL` proxy quota/revocation state, version-bound
+package manifests, centralized external error mapping, fixed 40-case attack
+dataset evidence and CI dependency/SBOM/checksum release gates.
 
 Verification evidence and the remaining non-claimed runtime work are recorded
 in [docs/reports/SECOND_ITERATION_REPORT.md](docs/reports/SECOND_ITERATION_REPORT.md).

@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 public final class AttackEvidenceWriter {
+    public static final String DATASET_VERSION = "security-fixtures-v2";
     public void write(Path output, List<AttackCaseResult> results) throws IOException {
         Path raw = output.resolve("raw");
         Files.createDirectories(raw);
@@ -22,7 +23,8 @@ public final class AttackEvidenceWriter {
         StringBuilder out = new StringBuilder("[\n");
         for (int i = 0; i < results.size(); i++) {
             AttackCaseResult r = results.get(i);
-            out.append("  {\"experimentId\":\"").append(r.experimentId()).append("\",\"caseId\":\"")
+            out.append("  {\"datasetVersion\":\"").append(DATASET_VERSION)
+                    .append("\",\"experimentId\":\"").append(r.experimentId()).append("\",\"caseId\":\"")
                     .append(r.attackId()).append("\",\"requirementId\":\"").append(r.requirementId())
                     .append("\",\"mutatedField\":\"").append(r.mutatedField()).append("\",\"expectedDecision\":\"")
                     .append(r.expectedDecision()).append("\",\"actualDecision\":\"").append(r.actualDecision())
@@ -36,9 +38,9 @@ public final class AttackEvidenceWriter {
     }
 
     private static String csv(List<AttackCaseResult> results) {
-        StringBuilder out = new StringBuilder("experimentId,caseId,requirementId,mutatedField,expectedDecision,actualDecision,externalErrorCode,internalAuditReason,auditEventId,evidencePath,passed\n");
+        StringBuilder out = new StringBuilder("datasetVersion,experimentId,caseId,requirementId,mutatedField,expectedDecision,actualDecision,externalErrorCode,internalAuditReason,auditEventId,evidencePath,passed\n");
         for (AttackCaseResult r : results) {
-            out.append(String.join(",", r.experimentId(), r.attackId(), r.requirementId(), r.mutatedField(),
+            out.append(String.join(",", DATASET_VERSION, r.experimentId(), r.attackId(), r.requirementId(), r.mutatedField(),
                     r.expectedDecision(), r.actualDecision(), r.externalErrorCode(), r.internalAuditReason(),
                     r.auditEventId(), r.evidencePath().replace("\\", "/"), Boolean.toString(r.passed()))).append('\n');
         }
@@ -46,7 +48,9 @@ public final class AttackEvidenceWriter {
     }
 
     private static String markdown(List<AttackCaseResult> results) {
-        StringBuilder out = new StringBuilder("# Attack Matrix Results\n\n| Case | Requirement | Mutation | Expected | Actual | Error | Pass |\n| --- | --- | --- | --- | --- | --- | --- |\n");
+        StringBuilder out = new StringBuilder("# Attack Matrix Results\n\nDataset: `")
+                .append(DATASET_VERSION)
+                .append("`\n\n| Case | Requirement | Mutation | Expected | Actual | Error | Pass |\n| --- | --- | --- | --- | --- | --- | --- |\n");
         for (AttackCaseResult r : results) {
             out.append("| ").append(r.attackId()).append(" | ").append(r.requirementId()).append(" | ")
                     .append(r.mutatedField()).append(" | ").append(r.expectedDecision()).append(" | ")

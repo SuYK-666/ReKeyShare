@@ -1,3 +1,3 @@
 [
-  {"experimentId":"ATTACK-MATRIX","caseId":"AT-30","requirementId":"R-PACKAGE-001","mutatedField":"ciphertext","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"PACKAGE_INVALID","internalAuditReason":"MANIFEST_MISMATCH","auditEventId":"audit-AT-30","evidencePath":"docs/reports/attack-matrix/raw/AT-30.json","passed":true}
+  {"datasetVersion":"security-fixtures-v2","experimentId":"ATTACK-MATRIX","caseId":"AT-30","requirementId":"R-PACKAGE-001","mutatedField":"ciphertext","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"PACKAGE_INVALID","internalAuditReason":"MANIFEST_MISMATCH","auditEventId":"audit-AT-30","evidencePath":"docs/reports/attack-matrix/raw/AT-30.json","passed":true}
 ]

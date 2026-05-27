@@ -1,24 +1,31 @@
-# Context Binding
+# Canonical Context Binding
 
-`SECURE_ENVELOPE_V1` 使用 `AadBuilder` 构造长度前缀编码的 canonical AAD。
-下列字段全部参与 DEK envelope 的 AES-GCM 认证：
+`SECURE_ENVELOPE_V1` constructs authenticated data through `AadBuilder` using
+length-prefixed UTF-8 fields. Values are never joined by an ambiguous raw
+delimiter. Required fields and their order are:
 
-| Field | Purpose |
+| Field | Security Purpose |
 | --- | --- |
-| `tenantId` | 隔离租户范围 |
-| `dataId` | 绑定密文对象 |
-| `ownerId` | 绑定数据所有者 |
-| `recipientId` | 绑定获授权接收者 |
-| `algorithm` | 防止算法类型替换 |
-| `algorithmSuite` | 防止 suite/version 降级 |
-| `ownerKeyId` | 绑定 owner key 身份 |
-| `contentKeyVersion` | 防止旧 DEK envelope 重放 |
-| `policyHash` | 绑定授权条件 |
-| `grantId` | 绑定授权实例 |
-| `proofIssuerId` | 绑定转换证明签发方 |
-| `operation` | 防止 upload/download/re-encrypt 场景混用 |
+| `tenantId` | Isolate tenant scope |
+| `dataId` | Bind the ciphertext object |
+| `ownerId` | Bind the owner |
+| `recipientId` | Bind the authorized recipient |
+| `algorithm` | Prevent algorithm substitution |
+| `algorithmSuite` | Prevent suite/version downgrade |
+| `ownerKeyId` | Bind owner key identity |
+| `contentKeyVersion` | Reject old envelope replay |
+| `policyHash` | Bind authorization policy |
+| `grantId` | Bind grant instance |
+| `proofIssuerId` | Bind transformation issuer |
+| `operation` | Prevent upload/download/re-encrypt confusion |
 
-`CryptoProviderTest` 针对以上 12 个字段逐项替换并要求解封失败；
-`DataSecurityService.uploadEncrypted` 还会在写入前拒绝不匹配 canonical AAD
-的客户端密文。`ConversionProof` 另外绑定 package 和 capsule digest，因此
-转换包下载同时受 AAD 与 proof 两层验证。
+All fields are UTF-8 strings; integer versions are canonical base-10 strings.
+Binary material is represented as Base64URL at protocol boundaries and hashes
+as documented SHA-256 hex or Base64URL values. Implementations must apply the
+same Unicode input policy before constructing AAD; no permissive normalization
+is performed by the Java builder.
+
+`AadBuilderCanonicalizationTest` covers empty values, numeric differences and
+delimiter-containing values. `CryptoProviderTest` and
+`DataSecurityUploadEncryptedTest` prove that changed context/AAD is rejected
+before storage or decryption.

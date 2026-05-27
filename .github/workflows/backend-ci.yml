@@ -21,6 +21,16 @@ jobs:
           cache: maven
       - name: Test and quality gates
         run: mvn --batch-mode verify
+      - name: Dependency vulnerability gate
+        run: mvn --batch-mode org.owasp:dependency-check-maven:check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Frontend SBOM
+        run: |
+          npm ci
+          npx --yes @cyclonedx/cyclonedx-npm --output-file target/bom-frontend.json
       - name: Security boundary guard
         run: sh scripts/check-security-boundary.sh
       - name: Generate reproducible experiment evidence
@@ -39,4 +49,13 @@ jobs:
             docs/reports/summary
             target/site/jacoco
             target/bom.json
+            target/bom-frontend.json
+            target/dependency-check-report.*
             target/surefire-reports
+      - name: Release evidence checksums
+        run: sha256sum target/bom.json target/bom-frontend.json > target/evidence.sha256
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-security-checksums
+          path: target/evidence.sha256

@@ -4,9 +4,10 @@
 
 - The default HTTP composition uses in-memory repositories and built-in token
   fixtures; it is not a multi-instance production deployment.
-- `secure-local` wires durable audit, formal proof replay and idempotency
-  storage plus local file object/key providers. Live HTTP data/grant/package/
-  proxy repositories still require full JDBC domain wiring for complete restart claims.
+- `secure-local` wires durable audit, formal proof replay, idempotency and
+  proxy node/quota storage plus local file object/key providers. Live HTTP
+  data/grant/package repositories still require full JDBC domain wiring for
+  complete restart claims.
 - Local implementations now exist for `ObjectStore`, `KeyManagementProvider`
   and append-only audit anchoring; external S3/KMS/OIDC/WORM services are not
   provisioned by this repository.

@@ -29,6 +29,7 @@ import com.example.pre.service.DemoRecipientShareSignature;
 import com.example.pre.service.DemoTokenService;
 import com.example.pre.service.EccRecipientShareService;
 import com.example.pre.service.ErrorCode;
+import com.example.pre.service.ErrorResponseMapper;
 import com.example.pre.service.KeyManagementService;
 import com.example.pre.service.IdempotencyService;
 import com.example.pre.service.ObjectAuthorizationService;
@@ -51,6 +52,7 @@ import com.example.pre.storage.InMemoryUserRepository;
 import com.example.pre.storage.AuditRepository;
 import com.example.pre.storage.JdbcAuditRepository;
 import com.example.pre.storage.JdbcIdempotencyRepository;
+import com.example.pre.storage.JdbcProxyNodeRepository;
 import com.example.pre.storage.JdbcProofReplayRepository;
 import com.example.pre.storage.objectstore.ObjectStore;
 import com.example.pre.storage.objectstore.FileObjectStore;
@@ -84,6 +86,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public final class ReKeyShareApplication {
+    private static final ErrorResponseMapper ERROR_RESPONSES = new ErrorResponseMapper();
     private static final int MAX_BODY_BYTES = 1024 * 1024;
 
     private ReKeyShareApplication() {
@@ -271,7 +274,7 @@ public final class ReKeyShareApplication {
                 requireAdmin(auth);
                 writeJson(exchange, 200, "{\"code\":\"SUCCESS\",\"mode\":\""
                         + (state.profile.durableLocalSecurityStores()
-                        ? "secure-local:h2-audit+replay+idempotency" : "memory+json-snapshot") + "\",\"users\":"
+                        ? "secure-local:h2-audit+replay+idempotency+proxy" : "memory+json-snapshot") + "\",\"users\":"
                         + state.users.findAll().size() + ",\"dataObjects\":" + state.dataRepository.findAll().size()
                         + ",\"grants\":" + state.grants.findAll().size() + ",\"packages\":"
                         + state.packages.findAll().size() + ",\"objectStore\":\""
@@ -286,9 +289,8 @@ public final class ReKeyShareApplication {
                 state.rateLimiter.recordFailure(remote);
                 state.rateLimiter.recordFailure(scopedRateKey);
             }
-            ErrorCode external = externalErrorCode(e.code());
-            writeJson(exchange, httpStatus(external), errorJson(external.name(), externalMessage(external),
-                    requestId));
+            ErrorCode external = ERROR_RESPONSES.externalCode(e.code());
+            writeJson(exchange, ERROR_RESPONSES.status(external), ERROR_RESPONSES.json(external, requestId));
         } catch (IllegalArgumentException e) {
             writeJson(exchange, 400, errorJson(ErrorCode.INVALID_REQUEST.name(), e.getMessage(), requestId));
         } catch (Exception e) {
@@ -609,6 +611,8 @@ public final class ReKeyShareApplication {
                 + "\",\"grantPolicyHash\":\"" + dataPackage.grantPolicyHash()
                 + "\",\"grantContextHash\":\"" + dataPackage.grantContextHash()
                 + "\",\"manifestHash\":\"" + v2.manifest().manifestHash()
+                + "\",\"manifestFormatVersion\":\"" + v2.manifest().formatVersion()
+                + "\",\"minVerifierVersion\":\"" + v2.manifest().minVerifierVersion()
                 + "\",\"ciphertextHash\":\"" + v2.manifest().ciphertextHash()
                 + "\",\"aadHash\":\"" + v2.manifest().aadHash()
                 + "\",\"capsuleHash\":\"" + v2.manifest().capsuleHash()
@@ -981,10 +985,13 @@ public final class ReKeyShareApplication {
         final boolean legacyActorHeaderEnabled = false;
 
         ApiState(RuntimeProfile profile) {
+            ConfigurationValidator.validate(profile);
             this.profile = profile;
             String tokenSecret = profile.durableLocalSecurityStores()
                     ? requireSecureLocalSecret()
-                    : "rekeyshare-demo-signing-secret";
+                    : profile.demoFeaturesEnabled()
+                    ? "rekeyshare-demo-signing-secret"
+                    : Base64.getUrlEncoder().withoutPadding().encodeToString(SecureRandomUtil.randomBytes(32));
             this.tokens = new DemoTokenService(tokenSecret, 3600);
             if (profile.durableLocalSecurityStores()) {
                 String jdbcUrl = System.getProperty("rekeyshare.local.jdbcUrl",
@@ -1011,7 +1018,11 @@ public final class ReKeyShareApplication {
             this.audit = new AuditService(auditRepository);
             this.objectAuth = new ObjectAuthorizationService(dataRepository, grants, packages, auditRepository);
             this.storage = new StorageSnapshotService(users, dataRepository, grants, packages, auditRepository);
-            this.proxyNodes = new ProxyNodeService(auditRepository);
+            this.proxyNodes = profile.durableLocalSecurityStores()
+                    ? new ProxyNodeService(auditRepository, new JdbcProxyNodeRepository(
+                            System.getProperty("rekeyshare.local.jdbcUrl",
+                                    "jdbc:h2:file:./storage/secure-local/rekeyshare;AUTO_SERVER=TRUE"), "sa", ""))
+                    : new ProxyNodeService(auditRepository);
             if (profile == RuntimeProfile.PRODUCTION || profile == RuntimeProfile.SECURE_LOCAL) {
                 cryptoProviders.productionDefault();
             }

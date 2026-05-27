@@ -16,6 +16,7 @@ class AttackMatrixRunnerTest {
         assertEquals(40, results.size());
         assertTrue(results.stream().allMatch(AttackCaseResult::passed));
         assertTrue(Files.exists(output.resolve("attack-results.json")));
+        assertTrue(Files.readString(output.resolve("attack-results.json")).contains("\"datasetVersion\":\"security-fixtures-v2\""));
         assertTrue(Files.exists(output.resolve("attack-results.csv")));
         assertTrue(Files.exists(output.resolve("attack-results.md")));
         for (AttackCaseResult result : results) {

@@ -4,6 +4,7 @@ import com.example.pre.model.ShareGrant;
 import com.example.pre.model.SharedPackageV2;
 import com.example.pre.model.GrantStatus;
 import com.example.pre.model.PackageStatus;
+import com.example.pre.model.PackageManifest;
 
 import java.time.Instant;
 
@@ -11,6 +12,10 @@ public final class PackageVerifier {
     public void verify(SharedPackageV2 dataPackage, Instant now) {
         if (!"v2".equals(dataPackage.packageVersion())) {
             throw new ReKeyShareException(ErrorCode.PACKAGE_INVALID, "unsupported shared package version");
+        }
+        if (!PackageManifest.CURRENT_FORMAT_VERSION.equals(dataPackage.manifest().formatVersion())
+                || !PackageManifest.CURRENT_VERIFIER_VERSION.equals(dataPackage.manifest().minVerifierVersion())) {
+            throw new ReKeyShareException(ErrorCode.PACKAGE_INVALID, "unsupported package manifest version");
         }
         if (dataPackage.expiresAt() != null && !dataPackage.expiresAt().isAfter(now)) {
             throw new ReKeyShareException(ErrorCode.PACKAGE_EXPIRED, "shared package expired");

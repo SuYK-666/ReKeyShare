@@ -1,9 +1,9 @@
 # E04 Package Tamper Detection
 
-- Commit: `628cb38`
+- Commit: `22bc6b5`
 - JDK: `25.0.2`
 - OS: `Windows 11 10.0`
-- Generated: `2026-05-26T16:34:07.462250100Z`
+- Generated: `2026-05-27T01:53:44.111385400Z`
 
 Mutations covered ciphertext, AAD, capsule, policy binding and manifest hash.
 

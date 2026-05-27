@@ -84,7 +84,7 @@ class JdbcGovernanceRepositoryTest {
              var statement = connection.prepareStatement("select count(*) from schema_migrations");
              var result = statement.executeQuery()) {
             result.next();
-            assertEquals(2, result.getInt(1));
+            assertEquals(3, result.getInt(1));
         }
     }
 

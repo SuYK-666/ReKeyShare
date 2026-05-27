@@ -1,9 +1,9 @@
 # E08 Audit Chain Tamper Detection
 
-- Commit: `628cb38`
+- Commit: `22bc6b5`
 - JDK: `25.0.2`
 - OS: `Windows 11 10.0`
-- Generated: `2026-05-26T16:34:48.690298300Z`
+- Generated: `2026-05-27T01:54:24.847012400Z`
 
 The hash-chain verifier rejected deletion, modification, reordering and forged insertion against a 20-event baseline.
 

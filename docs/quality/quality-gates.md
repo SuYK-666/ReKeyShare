@@ -23,4 +23,11 @@ The CI workflow uploads:
 - docs/reports/summary
 - target/site/jacoco
 - target/bom.json
+- target/bom-frontend.json
+- target/dependency-check-report.*
+- target/evidence.sha256
 - target/surefire-reports
+
+Dependency-Check runs as a network-backed CI release gate; local `mvn verify`
+remains usable when vulnerability feeds are unavailable. Maven and npm SBOMs
+are retained with SHA-256 release evidence.

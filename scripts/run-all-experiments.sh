@@ -15,5 +15,6 @@ mvn -q -Dexec.mainClass=com.example.pre.app.ConcurrencyExperimentApplication \
   -Drekeyshare.nonce.registry=target/experiment/aes-gcm-nonces.txt -Drekeyshare.commit="$commit" exec:java
 mvn -q -Dexec.mainClass=com.example.pre.app.ComplianceExperimentApplication \
   -Drekeyshare.commit="$commit" exec:java
+mvn -q -Dexec.mainClass=com.example.pre.experiment.attack.AttackMatrixRunner exec:java
 
 printf '%s\n' "Raw evidence: docs/reports/raw/" "Summaries: docs/reports/summary/"

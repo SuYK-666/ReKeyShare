@@ -1,3 +1,3 @@
 [
-  {"experimentId":"ATTACK-MATRIX","caseId":"AT-20","requirementId":"R-PROXY-001","mutatedField":"proxy.status","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"PROXY_INACTIVE","internalAuditReason":"NODE_NOT_ACTIVE","auditEventId":"audit-AT-20","evidencePath":"docs/reports/attack-matrix/raw/AT-20.json","passed":true}
+  {"datasetVersion":"security-fixtures-v2","experimentId":"ATTACK-MATRIX","caseId":"AT-20","requirementId":"R-PROXY-001","mutatedField":"proxy.status","expectedDecision":"REJECT","actualDecision":"REJECT","externalErrorCode":"PROXY_INACTIVE","internalAuditReason":"NODE_NOT_ACTIVE","auditEventId":"audit-AT-20","evidencePath":"docs/reports/attack-matrix/raw/AT-20.json","passed":true}
 ]

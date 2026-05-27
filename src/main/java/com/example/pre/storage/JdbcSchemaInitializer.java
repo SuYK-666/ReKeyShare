@@ -20,6 +20,7 @@ public final class JdbcSchemaInitializer {
             }
             statement.execute("merge into schema_migrations (version, description) key (version) values ('V001', 'base governance schema')");
             statement.execute("merge into schema_migrations (version, description) key (version) values ('V002', 'proof replay tenant audit and idempotency security state')");
+            statement.execute("merge into schema_migrations (version, description) key (version) values ('V003', 'durable proxy admission and quota state')");
         } catch (SQLException e) {
             throw new IllegalStateException("database schema initialization failed", e);
         }

@@ -55,6 +55,22 @@ class PackageVerifierTest {
                         () -> new PackageVerifier().verify(unknown, Instant.now())).code());
     }
 
+    @Test
+    void rejectsDowngradedManifestFormatOrVerifierRequirement() {
+        SharedPackageV2 issued = SharedPackageV2.issue(fixture(Bytes.utf8("ciphertext")), descriptor,
+                Instant.now().plusSeconds(30));
+        PackageManifest manifest = issued.manifest();
+        PackageManifest downgraded = new PackageManifest("1.0", "1.0", manifest.ciphertextHash(),
+                manifest.aadHash(), manifest.capsuleHash(), manifest.policyHash(), manifest.grantContextHash(),
+                manifest.chunkMerkleRoot(), manifest.manifestHash());
+        SharedPackageV2 changed = new SharedPackageV2(issued.packageVersion(), issued.schemeId(),
+                issued.parameterSpec(), issued.proofStatus(), issued.keyVersion(), issued.expiresAt(),
+                issued.payload(), downgraded);
+        assertEquals(ErrorCode.PACKAGE_INVALID,
+                assertThrows(ReKeyShareException.class,
+                        () -> new PackageVerifier().verify(changed, Instant.now())).code());
+    }
+
     private static ReEncryptedPackage fixture(byte[] ciphertext) {
         return new ReEncryptedPackage("data-1", "alice", "bob", AlgorithmType.RSA_PRE,
                 ciphertext, Bytes.utf8("nonce-12byte"), Bytes.utf8("aad"),

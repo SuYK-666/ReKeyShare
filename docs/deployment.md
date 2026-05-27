@@ -4,8 +4,8 @@
 
 | Profile | Purpose |
 | --- | --- |
-| `production` | formal route/provider boundary; external durable integrations are required before deployment |
-| `secure-local` | local H2 audit/replay/idempotency, file ciphertext store and local key provider |
+| `production` | formal route/provider boundary; uses an ephemeral process token key pending external IdP integration |
+| `secure-local` | local H2 audit/replay/idempotency/proxy state, file ciphertext store and local key provider |
 | `demo` | teaching baseline and plaintext verification fixtures only |
 
 Production and secure-local OpenAPI omit plaintext upload, baseline
@@ -30,6 +30,10 @@ Defaults:
 The local key store is a replaceable functional implementation, not HSM
 custody. `secure-local` fails fast unless a non-trivial token signing secret is
 supplied by configuration.
+
+`production` never loads the demo fixture token secret: it selects a random
+process key only as a fail-closed local boundary until an external identity
+adapter is configured. Tokens do not survive a production process restart.
 
 ## Remaining Production Integrations
 
