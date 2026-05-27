@@ -50,7 +50,6 @@ public final class ErrorResponseMapper {
 	public String json(ErrorCode external, String requestId) {
 		return "{\"success\":false,\"errorCode\":\"" + external.name() + "\",\"code\":\"" + external.name()
 				+ "\",\"message\":\"" + message(external) + "\",\"traceId\":\"" + requestId + "\",\"requestId\":\""
-				+ requestId + "\",\"eventId\":\"err-" + requestId + "\",\"timestamp\":\"" + Instant.now(clock)
-				+ "\"}";
+				+ requestId + "\",\"eventId\":\"err-" + requestId + "\",\"timestamp\":\"" + Instant.now(clock) + "\"}";
 	}
 }
