@@ -1,9 +1,12 @@
 # CI Quality Gates
 
-`.github/workflows/backend-ci.yml` executes on Java 17:
+`.github/workflows/backend-ci.yml` separates code validation from
+network-backed vulnerability analysis on Java 17:
 
-1. `mvn --batch-mode verify`: JUnit, JaCoCo, SpotBugs, Spotless and CycloneDX.
-2. OWASP Dependency Check with `CVSS >= 7` configured as failure.
+1. `build-test`: `mvn --batch-mode verify -Ddependency-check.skip=true` runs
+   JUnit, JaCoCo, SpotBugs, Spotless and CycloneDX.
+2. `dependency-check`: OWASP Dependency-Check `12.2.2` with `CVSS >= 7`
+   configured as failure.
 3. Frontend CycloneDX SBOM generation after `npm ci`.
 4. Security-boundary, experiment, documentation-link and performance checks.
 5. SHA-256 evidence generation and artifact upload.
@@ -39,8 +42,9 @@ provided by the hosting workflow run rather than generated locally.
 
 Dependency-Check is a required CI gate and downloads vulnerability metadata
 from NVD. Repository administrators must configure the GitHub Actions secret
-`NVD_API_KEY`; the workflow exposes it only to the Dependency-Check Maven
-step as the `NVD_API_KEY` environment variable.
+`NVD_API_KEY`; the workflow exposes it only to the presence check and Maven
+scan steps in the `dependency-check` job as the `NVD_API_KEY` environment
+variable.
 
 The Maven configuration reads that environment variable, applies a conservative
 NVD API delay, emits HTML and JSON reports, and fails when a dependency reaches
@@ -48,6 +52,13 @@ CVSS 7 or higher. CI caches
 `~/.m2/repository/org/owasp/dependency-check-data` between runs so builds do
 not repeatedly perform a cold metadata download and unnecessarily consume NVD
 rate limits.
+
+The dependency scan is skipped for pull requests raised from forks because
+GitHub deliberately does not provide repository secrets to those runners.
+The `build-test` job still validates such pull requests; the vulnerability gate
+runs on `main`, manual dispatches and same-repository pull requests. A missing
+key on an eligible event fails immediately with an explicit configuration
+message rather than an opaque NVD update failure.
 
 For a local vulnerability scan:
 

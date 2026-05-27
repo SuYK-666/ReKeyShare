@@ -208,8 +208,10 @@ powershell -ExecutionPolicy Bypass -File scripts\verify-all.ps1
 
 CI 会生成并保留测试报告、JaCoCo、SBOM、dependency-check 与 evidence checksum。
 启用漏洞扫描时，仓库管理员需配置 GitHub Actions secret `NVD_API_KEY`，CI 会缓存
-Dependency-Check 的 NVD 数据以避免每次冷启动下载并降低限流风险。质量门禁与本地扫描
-方式见 [CI Quality Gates](docs/ops/ci-quality-gates.md)。
+Dependency-Check 的 NVD 数据以避免每次冷启动下载并降低限流风险。代码质量构建与
+网络依赖的漏洞扫描采用独立 jobs；由于 GitHub 不向 fork PR 提供仓库 secrets，
+此类 PR 仅运行代码质量门禁，合入 `main` 后再执行漏洞门禁。质量门禁与本地扫描方式见
+[CI Quality Gates](docs/ops/ci-quality-gates.md)。
 
 ## 项目结构
 
