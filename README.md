@@ -207,7 +207,9 @@ powershell -ExecutionPolicy Bypass -File scripts\verify-all.ps1
 | [docs/testing/SECOND_ITERATION_TRACEABILITY.md](docs/testing/SECOND_ITERATION_TRACEABILITY.md) | 安全需求到代码、测试、文档的映射 |
 
 CI 会生成并保留测试报告、JaCoCo、SBOM、dependency-check 与 evidence checksum。
-质量门禁说明见 [CI Quality Gates](docs/ops/ci-quality-gates.md)。
+启用漏洞扫描时，仓库管理员需配置 GitHub Actions secret `NVD_API_KEY`，CI 会缓存
+Dependency-Check 的 NVD 数据以避免每次冷启动下载并降低限流风险。质量门禁与本地扫描
+方式见 [CI Quality Gates](docs/ops/ci-quality-gates.md)。
 
 ## 项目结构
 
