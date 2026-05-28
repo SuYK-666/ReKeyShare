@@ -27,11 +27,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { MechanismGraphs } from "@/components/console/mechanism-graphs";
 import { discoverCapabilities, type CapabilitySummary } from "@/lib/api/capabilities";
-import { rekeyshareRequest } from "@/lib/api/openapi-client";
 import type { ApiTrace } from "@/lib/api/traces";
+import { demoSteps, type RunnerMode } from "@/lib/demo/scenario-runner";
 import { glossaryTerms } from "@/lib/security/glossary";
 import { cn } from "@/lib/utils";
+import { useDemoRun, type StepStatus } from "@/hooks/useDemoRun";
+import { parseEvidenceArtifact, type ParsedEvidenceArtifact } from "@/services/evidence-parser";
+import { rekeyshareRequest } from "@/services/rekeyshare-api";
 
 type ViewKey =
   | "demo"
@@ -50,9 +54,7 @@ type ViewKey =
   | "evidence"
   | "settings";
 
-type StepStatus = "idle" | "running" | "success" | "error";
 type Profile = "production" | "secure-local" | "demo";
-type RunnerMode = "backend" | "mock";
 
 const nav: Array<{ key: ViewKey; label: string; group: string; icon: LucideIcon }> = [
   { key: "demo", label: "演示驾驶舱", group: "演示", icon: Play },
@@ -70,21 +72,6 @@ const nav: Array<{ key: ViewKey; label: string; group: string; icon: LucideIcon 
   { key: "benchmark", label: "性能与算法对照", group: "工程证据", icon: Gauge },
   { key: "evidence", label: "CI 与交付证据", group: "工程证据", icon: Archive },
   { key: "settings", label: "系统设置", group: "设置", icon: Settings },
-];
-
-const demoSteps = [
-  "初始化租户与角色",
-  "Owner 选择样例文件",
-  "客户端侧 AES-GCM 加密并上传密文",
-  "创建对象级授权策略",
-  "选择受治理代理节点",
-  "代理生成策略绑定转换证明",
-  "Recipient 获取可验证共享包",
-  "Recipient 本地验证并解密",
-  "Auditor 校验审计链",
-  "Owner 撤销授权并触发轮换",
-  "旧共享包访问失败",
-  "攻击实验与 CI 证据总结",
 ];
 
 const traces: ApiTrace[] = [
@@ -155,20 +142,6 @@ const proofFields = {
   consumedStatus: "first pass consumed",
 };
 
-const scenarioRequests = [
-  { method: "POST", path: "/api/demo/init", request: { tenantId: "tenantA", roles: ["Owner", "Recipient", "Proxy", "Auditor"] } },
-  { method: "POST", path: "/api/demo/files/select", request: { fileName: "salary.xlsx", ownerId: "alice" } },
-  { method: "POST", path: "/api/data/upload-encrypted", request: { dataId: "data_salary_2026", ciphertext: "b64:8d12...9fa0", aadHash: "sha256:32ca...7d11", manifestHash: "sha256:8cc3...e91a" } },
-  { method: "POST", path: "/api/grants", request: { dataId: "data_salary_2026", recipientId: "bob", actions: ["read", "download", "verify"], idempotencyKey: "idem_grant_20260528_001" } },
-  { method: "GET", path: "/api/proxies/proxy-east-01", request: { proxyId: "proxy-east-01" } },
-  { method: "POST", path: "/api/proxy/transform", request: { grantId: "grant_bob_q2", proxyId: "proxy-east-01", policyHash: "sha256:9a3d...4b19" } },
-  { method: "GET", path: "/api/shared-packages/pkg_2026_05_28_001", request: { packageId: "pkg_2026_05_28_001" } },
-  { method: "POST", path: "/api/shared-packages/pkg_2026_05_28_001/verify", request: { packageId: "pkg_2026_05_28_001", aadHash: "sha256:32ca...7d11" } },
-  { method: "GET", path: "/api/audit/verify", request: { tenantId: "tenantA", checkpoint: "latest" } },
-  { method: "POST", path: "/api/grants/grant_bob_q2/revoke", request: { grantId: "grant_bob_q2", reason: "owner revoke" } },
-  { method: "GET", path: "/api/shared-packages/pkg_2026_05_28_001", request: { packageId: "pkg_2026_05_28_001", expect: "denied-after-revoke" } },
-  { method: "GET", path: "/api/evidence/summary", request: { include: ["attack-matrix", "ci", "audit"] } },
-] satisfies Array<{ method: string; path: string; request: Record<string, unknown> }>;
 
 function getInitialView(): ViewKey {
   if (typeof window === "undefined") {
@@ -289,62 +262,31 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-async function runBackendScenarioStep(index: number): Promise<ApiTrace> {
-  const scenario = scenarioRequests[index];
-  const result = await rekeyshareRequest<Record<string, unknown>>(
-    scenario.method as "GET" | "POST",
-    scenario.path,
-    scenario.request,
-    {
-      tenantId: "tenantA",
-      role: "Owner",
-      idempotencyKey: typeof scenario.request.idempotencyKey === "string" ? scenario.request.idempotencyKey : `idem_step_${index + 1}`,
-    },
-  );
-  return { ...result.trace, traceId: `trace-step-${index + 1}`, stepId: `step-${index + 1}` };
-}
-
-function mockScenarioTrace(index: number): ApiTrace {
-  const scenario = scenarioRequests[index];
-  const deniedOldPackage = index === 10;
-  return {
-    traceId: `trace-step-${index + 1}-mock`,
-    stepId: `step-${index + 1}`,
-    method: scenario.method,
-    path: scenario.path,
-    status: deniedOldPackage ? 403 : 200,
-    durationMs: 18 + index * 3,
-    requestId: `mock_req_${index + 1}`,
-    auditEventId: `mock_audit_${index + 1}`,
-    source: "mock",
-    request: scenario.request,
-    response: deniedOldPackage
-      ? { externalCode: "ACCESS_DENIED", internalReason: "GRANT_REVOKED", packageId: "pkg_2026_05_28_001" }
-      : { ok: true, dataId: "data_salary_2026", grantId: "grant_bob_q2", packageId: "pkg_2026_05_28_001" },
-  };
-}
-
-
 export default function ReKeyShareConsole() {
   const [view, setView] = useState<ViewKey>(getInitialView);
   const [profile, setProfile] = useState<Profile>("secure-local");
   const [tenant, setTenant] = useState("tenantA");
   const [role, setRole] = useState("Owner");
   const [demoMode, setDemoMode] = useState(false);
-  const [runnerMode, setRunnerMode] = useState<RunnerMode>("backend");
-  const [stepStatuses, setStepStatuses] = useState<StepStatus[]>(demoSteps.map(() => "idle"));
-  const [selectedTrace, setSelectedTrace] = useState(traces[0]);
+  const { completed, runnerMode, selectedTrace, setRunnerMode, setSelectedTrace, stepStatuses, runStep, runAll } = useDemoRun(traces[0]);
   const [proofReplayRan, setProofReplayRan] = useState(false);
   const [auditTampered, setAuditTampered] = useState(false);
   const [oldPackageDenied, setOldPackageDenied] = useState(false);
   const [capabilities, setCapabilities] = useState<CapabilitySummary | null>(null);
   const [idempotencyHit, setIdempotencyHit] = useState(false);
   const active = nav.find((item) => item.key === view) ?? nav[0];
-  const completed = stepStatuses.filter((item) => item === "success").length;
+
+  async function runDemoStep(index: number) {
+    await runStep(index);
+    if (index === 10) {
+      setOldPackageDenied(true);
+    }
+  }
+
+  async function runDemoAll() {
+    await runAll();
+    setOldPackageDenied(true);
+  }
 
   useEffect(() => {
     document.body.classList.toggle("rekeyshare-presentation", demoMode);
@@ -364,43 +306,6 @@ export default function ReKeyShareConsole() {
       alive = false;
     };
   }, []);
-
-  async function runStep(index: number) {
-    setStepStatuses((current) => current.map((item, i) => (i === index ? "running" : item)));
-    try {
-      const trace = runnerMode === "backend" ? await runBackendScenarioStep(index) : mockScenarioTrace(index);
-      const expectedDenied = index === 10;
-      const success = expectedDenied ? trace.status >= 400 : trace.status < 400;
-      setStepStatuses((current) => current.map((item, i) => (i === index ? (success ? "success" : "error") : item)));
-      setSelectedTrace(trace);
-      if (index === 10) {
-        setOldPackageDenied(true);
-      }
-    } catch (error) {
-      setStepStatuses((current) => current.map((item, i) => (i === index ? "error" : item)));
-      const scenario = scenarioRequests[index];
-      setSelectedTrace({
-        traceId: `trace-step-${index + 1}-network-error`,
-        stepId: `step-${index + 1}`,
-        method: scenario.method,
-        path: scenario.path,
-        status: 0,
-        durationMs: 0,
-        requestId: `local_${index + 1}`,
-        auditEventId: "-",
-        source: "backend",
-        request: scenario.request,
-        response: { externalCode: "BACKEND_UNAVAILABLE", message: error instanceof Error ? error.message : "request failed" },
-      });
-    }
-  }
-
-  async function runAll() {
-    for (let index = 0; index < demoSteps.length; index += 1) {
-      await runStep(index);
-      await wait(120);
-    }
-  }
 
   function exportReport() {
     const payload = {
@@ -550,7 +455,7 @@ export default function ReKeyShareConsole() {
           />
           <div className="space-y-5 p-4 lg:p-6">
             <SourceBanner profile={profile} capabilities={capabilities} />
-            {view === "demo" && <DemoDashboard statuses={stepStatuses} completed={completed} runnerMode={runnerMode} runStep={runStep} runAll={runAll} exportReport={exportReport} exportMarkdownReport={exportMarkdownReport} exportZipReport={exportZipReport} />}
+            {view === "demo" && <DemoDashboard statuses={stepStatuses} completed={completed} runnerMode={runnerMode} runStep={runDemoStep} runAll={runDemoAll} exportReport={exportReport} exportMarkdownReport={exportMarkdownReport} exportZipReport={exportZipReport} />}
             {view === "roles" && <RolesTenants setTenant={setTenant} />}
             {view === "upload" && <UploadWizard setSelectedTrace={setSelectedTrace} />}
             {view === "policy" && <PolicyBuilder idempotencyHit={idempotencyHit} setIdempotencyHit={setIdempotencyHit} />}
@@ -709,6 +614,7 @@ function DemoDashboard({
             <button onClick={exportZipReport} className={buttonClass("ghost")}>导出完整证据 ZIP</button>
           </div>
         </Card>
+        <MechanismGraphs />
       </div>
     </div>
   );
@@ -777,6 +683,7 @@ function UploadWizard({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTrace
     ciphertextSize: "131,248 bytes",
     message: "使用内置 salary.xlsx 样例，可直接运行浏览器侧加密演示。",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   async function runClientEncryption() {
     if (!window.crypto?.subtle) {
@@ -787,7 +694,7 @@ function UploadWizard({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTrace
     const startedAt = performance.now();
     setCryptoState((current) => ({ ...current, status: "hashing", message: "正在计算 SHA-256 摘要。" }));
 
-    const sample = new TextEncoder().encode("ReKeyShare encrypted upload sample: salary.xlsx metadata only.");
+    const sample = selectedFile ? new Uint8Array(await selectedFile.arrayBuffer()) : new TextEncoder().encode("ReKeyShare encrypted upload sample: salary.xlsx metadata only.");
     const digest = await crypto.subtle.digest("SHA-256", sample);
     const sha256 = `sha256:${shortHash(toBase64(digest))}`;
 
@@ -868,8 +775,12 @@ function UploadWizard({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTrace
           ))}
         </div>
         <div className="mt-5 rounded-2xl border border-dashed border-white/20 bg-white/[0.03] p-6">
-          <p className="text-lg font-black text-white">salary.xlsx</p>
-          <p className="mt-2 text-sm text-slate-400">size: 128 KB · MIME: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet · SHA-256: {cryptoState.sha256}</p>
+          <p className="text-lg font-black text-white">{selectedFile?.name ?? "salary.xlsx"}</p>
+          <p className="mt-2 text-sm text-slate-400">size: {selectedFile ? `${selectedFile.size.toLocaleString()} bytes` : "128 KB"} · MIME: {selectedFile?.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"} · SHA-256: {cryptoState.sha256}</p>
+          <label className="mt-4 inline-flex h-10 cursor-pointer items-center rounded-xl border border-white/12 bg-white/6 px-4 text-sm font-black text-white hover:bg-white/10">
+            选择真实文件
+            <input type="file" className="hidden" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
+          </label>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <Field label="nonce" value={cryptoState.nonce} />
             <Field label="manifestHash" value={cryptoState.manifestHash} />
@@ -1340,22 +1251,60 @@ function ThresholdGovernance() {
 }
 
 function AttackLab() {
+  const [rows, setRows] = useState(attackCases.map(([caseId, target, actor, expected, reason]) => ({
+    caseId,
+    target,
+    actor,
+    expected,
+    actual: "denied",
+    externalCode: "不可访问或不存在",
+    internalReason: reason,
+    evidenceId: `evidence_${caseId.toLowerCase()}`,
+    pass: true,
+  })));
+  const [source, setSource] = useState<"backend" | "mock">("mock");
+  const [status, setStatus] = useState("ready");
+
+  async function runAttackMatrix() {
+    setStatus("running");
+    try {
+      const result = await rekeyshareRequest<{ cases?: Array<Record<string, unknown>> }>(
+        "POST",
+        "/api/evidence/attack-matrix/run",
+        { tenantId: "tenantA", cases: attackCases.map(([caseId]) => caseId) },
+        { tenantId: "tenantA", role: "Auditor" },
+      );
+      const backendCases = Array.isArray(result.data.cases) ? result.data.cases : [];
+      setRows((current) => current.map((row, index) => {
+        const found = backendCases[index] ?? {};
+        return {
+          ...row,
+          actual: String(found.actual ?? found.status ?? row.actual),
+          externalCode: String(found.externalCode ?? row.externalCode),
+          internalReason: String(found.internalReason ?? found.reason ?? row.internalReason),
+          evidenceId: String(found.evidenceId ?? found.requestId ?? result.trace.requestId),
+          pass: found.pass === undefined ? row.pass : Boolean(found.pass),
+        };
+      }));
+      setSource("backend");
+      setStatus(`backend completed · requestId=${result.trace.requestId}`);
+    } catch {
+      setSource("mock");
+      setStatus("backend unavailable · fallback matrix loaded");
+    }
+  }
+
   return (
     <Card>
       <SectionTitle title="攻击验证实验室" desc="攻击失败是安全结论，不是普通 HTTP error；每个 case 都有 expected/actual/pass/evidence。" />
+      <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <button onClick={() => void runAttackMatrix()} className={buttonClass("danger")}>一键运行攻击矩阵</button>
+        <Badge tone={source === "backend" ? "green" : "amber"}>source: {source}</Badge>
+        <span className="font-mono text-xs text-slate-400">{status}</span>
+      </div>
       <Table
         headers={["caseId", "攻击目标", "攻击者角色", "预期结果", "实际结果", "外部错误", "内部审计原因", "evidenceId", "结论"]}
-        rows={attackCases.map(([caseId, target, actor, expected, reason]) => [
-          caseId,
-          target,
-          actor,
-          expected,
-          "denied",
-          "不可访问或不存在",
-          reason,
-          `evidence_${caseId.toLowerCase()}`,
-          "pass",
-        ])}
+        rows={rows.map((row) => [row.caseId, row.target, row.actor, row.expected, row.actual, row.externalCode, row.internalReason, row.evidenceId, row.pass ? "pass" : "fail"])}
       />
       <div className="mt-5 rounded-2xl border border-red-300/25 bg-red-300/10 p-4">
         <p className="font-bold text-red-100">错误分层展示</p>
@@ -1364,8 +1313,8 @@ function AttackLab() {
         </p>
       </div>
       <div className="mt-5 flex flex-wrap gap-3">
-        {["运行跨租户探测", "运行未授权访问", "运行 proof replay", "运行 inactive proxy"].map((item) => (
-          <button key={item} className={buttonClass("danger")}>{item}</button>
+        {["跨租户探测", "未授权访问", "proof replay", "inactive proxy"].map((item) => (
+          <button key={item} onClick={() => void runAttackMatrix()} className={buttonClass("danger")}>{item}</button>
         ))}
       </div>
     </Card>
@@ -1482,12 +1431,7 @@ function BenchmarkEvidence() {
 }
 
 function CiEvidence() {
-  const [uploadedEvidence, setUploadedEvidence] = useState<{
-    name: string;
-    type: string;
-    status: string;
-    summary: string;
-  } | null>(null);
+  const [uploadedEvidence, setUploadedEvidence] = useState<ParsedEvidenceArtifact | null>(null);
   const items = [
     ["测试", "Maven verify / frontend build", "pass", "backend"],
     ["覆盖率", "JaCoCo 关键类门槛", "warning", "artifact"],
@@ -1497,24 +1441,7 @@ function CiEvidence() {
     ["checksum", "evidence checksum", "pass", "artifact"],
   ];
   async function parseEvidenceFile(file: File) {
-    const text = await file.text();
-    let status = "parsed";
-    let summary = `${file.name} · ${file.size.toLocaleString()} bytes`;
-    if (file.name.endsWith(".json")) {
-      const data = JSON.parse(text) as Record<string, unknown>;
-      const keys = Object.keys(data).slice(0, 8).join(", ");
-      summary = `JSON fields: ${keys || "empty"}`;
-      status = "json-ready";
-    } else if (file.name.endsWith(".csv")) {
-      const rows = text.trim().split(/\r?\n/).length;
-      summary = `CSV rows: ${rows}`;
-      status = "csv-ready";
-    } else if (file.name.endsWith(".md")) {
-      const headings = (text.match(/^#/gm) ?? []).length;
-      summary = `Markdown headings: ${headings}`;
-      status = "markdown-ready";
-    }
-    setUploadedEvidence({ name: file.name, type: file.type || "artifact", status, summary });
+    setUploadedEvidence(await parseEvidenceArtifact(file));
   }
 
   return (

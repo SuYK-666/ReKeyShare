@@ -151,9 +151,9 @@ mvn -q -DskipTests compile exec:java -Dexec.mainClass=com.example.pre.app.ReKeyS
 docker compose up --build
 ```
 
-### 启动前端控制台
+### 启动 Web Console
 
-前端位于 `app/`、`components/` 与 `lib/`，提供平台展示首页和 ReKeyShare 控制台。
+Web Console 位于 `app/`、`components/`、`hooks/`、`services/` 与 `lib/`。它不是单纯的静态看板，而是围绕 ReKeyShare 的安全域组织：能力探测、真实 scenario runner、客户端加密、策略授权、代理治理、proof 验证、撤销轮换、审计链、攻击矩阵、benchmark 与 CI artifact 统一进入一个可追踪控制台。
 
 ```powershell
 npm install
@@ -165,14 +165,26 @@ npm run dev
 - 首页：`http://localhost:3000/`
 - 控制台：`http://localhost:3000/console`
 
-控制台包含演示驾驶舱、客户端加密上传、对象级授权、代理治理、共享包 Inspector、撤销轮换、策略绑定证明、审计链、攻击验证实验室、性能与算法证据、CI 与交付证据、系统设置等入口。后端不可用时页面会明确标注 `source: mock`，不会把本地演示数据伪装成真实接口成功。
+控制台包含：
+
+- **Backend-first scenario runner**：默认以 `backend` 模式驱动 `/api/data/upload-encrypted`、grant create、proxy transform、package read、proof verify、audit verify、revoke 与旧 package 失败探测；每步保留 `requestId`、`auditEventId`、状态、耗时、响应体与 `source`。
+- **算法显微镜**：把 ciphertext、AAD、capsule、reKey、policy context、transformed capsule、proof 与 manifest 的依赖关系做成可点击视图，并支持篡改字段后显示失败校验点。
+- **Policy-bound proof lab**：展示 canonical payload、canonical payload hash、Ed25519 签名校验、replay key 和 consumed 状态，区分 invalid/expired proof 与 replay store 消费语义。
+- **撤销与重启复核**：从 package 创建、grant revoke、旧包失败，到 secure-local 重启后的同一 packageId 再次失败，保留前后 request/audit 证据。
+- **Threshold 治理原型**：以 `2/3` signed share、context-bound transcript 与 durable consumed-session replay 防护展示治理流程，并明确它不是生产级 threshold PRE 承诺。
+- **Benchmark 与证据中心**：支持导入 raw CSV / evidence artifact，展示加密、transform、package verify、proof verify 等图表化指标；RSA/ECC baseline 仅用于教学、实验和性能对照。
+
+后端不可用时页面会明确标注 `source: mock`，不会把本地数据伪装成真实接口成功。
 
 前端提交前运行：
 
 ```powershell
 npm run lint
 npm run build
+npx playwright test --list --project=chromium
 ```
+
+CI 中也执行 `npm ci`、`npm run lint`、`npm run build`、`npx playwright install --with-deps chromium` 与 `npx playwright test --project=chromium`，确保 Web Console 被纳入质量门槛。
 
 ## API 概览
 
