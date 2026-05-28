@@ -28,6 +28,8 @@ import {
 import Link from "next/link";
 
 import { discoverCapabilities, type CapabilitySummary } from "@/lib/api/capabilities";
+import { rekeyshareRequest } from "@/lib/api/openapi-client";
+import type { ApiTrace } from "@/lib/api/traces";
 import { glossaryTerms } from "@/lib/security/glossary";
 import { cn } from "@/lib/utils";
 
@@ -36,10 +38,12 @@ type ViewKey =
   | "roles"
   | "upload"
   | "policy"
+  | "microscope"
   | "proxy"
   | "packages"
   | "revocation"
   | "proof"
+  | "threshold"
   | "audit"
   | "attack"
   | "benchmark"
@@ -48,27 +52,19 @@ type ViewKey =
 
 type StepStatus = "idle" | "running" | "success" | "error";
 type Profile = "production" | "secure-local" | "demo";
-type ApiTrace = {
-  traceId: string;
-  method: string;
-  path: string;
-  status: number;
-  durationMs: number;
-  requestId: string;
-  auditEventId: string;
-  request: Record<string, unknown>;
-  response: Record<string, unknown>;
-};
+type RunnerMode = "backend" | "mock";
 
 const nav: Array<{ key: ViewKey; label: string; group: string; icon: LucideIcon }> = [
   { key: "demo", label: "演示驾驶舱", group: "演示", icon: Play },
   { key: "roles", label: "角色与租户", group: "演示", icon: Users },
   { key: "upload", label: "客户端加密上传", group: "核心流程", icon: UploadCloud },
   { key: "policy", label: "授权策略", group: "核心流程", icon: KeyRound },
+  { key: "microscope", label: "算法显微镜", group: "核心流程", icon: LockKeyhole },
   { key: "proxy", label: "代理节点治理", group: "核心流程", icon: Fingerprint },
   { key: "packages", label: "共享包与访问", group: "核心流程", icon: Boxes },
   { key: "revocation", label: "撤销与密钥轮换", group: "安全验证", icon: RotateCcwKey },
   { key: "proof", label: "策略绑定证明", group: "安全验证", icon: FileCheck2 },
+  { key: "threshold", label: "Threshold 治理", group: "安全验证", icon: Network },
   { key: "audit", label: "审计链验证", group: "安全验证", icon: ShieldCheck },
   { key: "attack", label: "攻击验证实验室", group: "安全验证", icon: ShieldAlert },
   { key: "benchmark", label: "性能与算法对照", group: "工程证据", icon: Gauge },
@@ -100,6 +96,7 @@ const traces: ApiTrace[] = [
     durationMs: 86,
     requestId: "req_7f31",
     auditEventId: "audit_1001",
+    source: "mock",
     request: {
       dataId: "data_salary_2026",
       ciphertext: "b64:8d12...9fa0",
@@ -118,6 +115,7 @@ const traces: ApiTrace[] = [
     durationMs: 41,
     requestId: "req_92ab",
     auditEventId: "audit_1099",
+    source: "mock",
     request: { proofNonce: "pn_19fd", canonicalPayloadHash: "sha256:aa73...7f09" },
     response: { externalCode: "ACCESS_DENIED", internalReason: "PROOF_REPLAY_DETECTED" },
   },
@@ -156,6 +154,21 @@ const proofFields = {
   expiryStatus: "valid",
   consumedStatus: "first pass consumed",
 };
+
+const scenarioRequests = [
+  { method: "POST", path: "/api/demo/init", request: { tenantId: "tenantA", roles: ["Owner", "Recipient", "Proxy", "Auditor"] } },
+  { method: "POST", path: "/api/demo/files/select", request: { fileName: "salary.xlsx", ownerId: "alice" } },
+  { method: "POST", path: "/api/data/upload-encrypted", request: { dataId: "data_salary_2026", ciphertext: "b64:8d12...9fa0", aadHash: "sha256:32ca...7d11", manifestHash: "sha256:8cc3...e91a" } },
+  { method: "POST", path: "/api/grants", request: { dataId: "data_salary_2026", recipientId: "bob", actions: ["read", "download", "verify"], idempotencyKey: "idem_grant_20260528_001" } },
+  { method: "GET", path: "/api/proxies/proxy-east-01", request: { proxyId: "proxy-east-01" } },
+  { method: "POST", path: "/api/proxy/transform", request: { grantId: "grant_bob_q2", proxyId: "proxy-east-01", policyHash: "sha256:9a3d...4b19" } },
+  { method: "GET", path: "/api/shared-packages/pkg_2026_05_28_001", request: { packageId: "pkg_2026_05_28_001" } },
+  { method: "POST", path: "/api/shared-packages/pkg_2026_05_28_001/verify", request: { packageId: "pkg_2026_05_28_001", aadHash: "sha256:32ca...7d11" } },
+  { method: "GET", path: "/api/audit/verify", request: { tenantId: "tenantA", checkpoint: "latest" } },
+  { method: "POST", path: "/api/grants/grant_bob_q2/revoke", request: { grantId: "grant_bob_q2", reason: "owner revoke" } },
+  { method: "GET", path: "/api/shared-packages/pkg_2026_05_28_001", request: { packageId: "pkg_2026_05_28_001", expect: "denied-after-revoke" } },
+  { method: "GET", path: "/api/evidence/summary", request: { include: ["attack-matrix", "ci", "audit"] } },
+] satisfies Array<{ method: string; path: string; request: Record<string, unknown> }>;
 
 function getInitialView(): ViewKey {
   if (typeof window === "undefined") {
@@ -276,12 +289,53 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function runBackendScenarioStep(index: number): Promise<ApiTrace> {
+  const scenario = scenarioRequests[index];
+  const result = await rekeyshareRequest<Record<string, unknown>>(
+    scenario.method as "GET" | "POST",
+    scenario.path,
+    scenario.request,
+    {
+      tenantId: "tenantA",
+      role: "Owner",
+      idempotencyKey: typeof scenario.request.idempotencyKey === "string" ? scenario.request.idempotencyKey : `idem_step_${index + 1}`,
+    },
+  );
+  return { ...result.trace, traceId: `trace-step-${index + 1}`, stepId: `step-${index + 1}` };
+}
+
+function mockScenarioTrace(index: number): ApiTrace {
+  const scenario = scenarioRequests[index];
+  const deniedOldPackage = index === 10;
+  return {
+    traceId: `trace-step-${index + 1}-mock`,
+    stepId: `step-${index + 1}`,
+    method: scenario.method,
+    path: scenario.path,
+    status: deniedOldPackage ? 403 : 200,
+    durationMs: 18 + index * 3,
+    requestId: `mock_req_${index + 1}`,
+    auditEventId: `mock_audit_${index + 1}`,
+    source: "mock",
+    request: scenario.request,
+    response: deniedOldPackage
+      ? { externalCode: "ACCESS_DENIED", internalReason: "GRANT_REVOKED", packageId: "pkg_2026_05_28_001" }
+      : { ok: true, dataId: "data_salary_2026", grantId: "grant_bob_q2", packageId: "pkg_2026_05_28_001" },
+  };
+}
+
+
 export default function ReKeyShareConsole() {
   const [view, setView] = useState<ViewKey>(getInitialView);
   const [profile, setProfile] = useState<Profile>("secure-local");
   const [tenant, setTenant] = useState("tenantA");
   const [role, setRole] = useState("Owner");
   const [demoMode, setDemoMode] = useState(false);
+  const [runnerMode, setRunnerMode] = useState<RunnerMode>("backend");
   const [stepStatuses, setStepStatuses] = useState<StepStatus[]>(demoSteps.map(() => "idle"));
   const [selectedTrace, setSelectedTrace] = useState(traces[0]);
   const [proofReplayRan, setProofReplayRan] = useState(false);
@@ -311,21 +365,41 @@ export default function ReKeyShareConsole() {
     };
   }, []);
 
-  function runStep(index: number) {
+  async function runStep(index: number) {
     setStepStatuses((current) => current.map((item, i) => (i === index ? "running" : item)));
-    window.setTimeout(() => {
-      setStepStatuses((current) => current.map((item, i) => (i === index ? "success" : item)));
-      setSelectedTrace(index === 10 ? traces[1] : traces[0]);
+    try {
+      const trace = runnerMode === "backend" ? await runBackendScenarioStep(index) : mockScenarioTrace(index);
+      const expectedDenied = index === 10;
+      const success = expectedDenied ? trace.status >= 400 : trace.status < 400;
+      setStepStatuses((current) => current.map((item, i) => (i === index ? (success ? "success" : "error") : item)));
+      setSelectedTrace(trace);
       if (index === 10) {
         setOldPackageDenied(true);
       }
-    }, 240);
+    } catch (error) {
+      setStepStatuses((current) => current.map((item, i) => (i === index ? "error" : item)));
+      const scenario = scenarioRequests[index];
+      setSelectedTrace({
+        traceId: `trace-step-${index + 1}-network-error`,
+        stepId: `step-${index + 1}`,
+        method: scenario.method,
+        path: scenario.path,
+        status: 0,
+        durationMs: 0,
+        requestId: `local_${index + 1}`,
+        auditEventId: "-",
+        source: "backend",
+        request: scenario.request,
+        response: { externalCode: "BACKEND_UNAVAILABLE", message: error instanceof Error ? error.message : "request failed" },
+      });
+    }
   }
 
-  function runAll() {
-    demoSteps.forEach((_, index) => {
-      window.setTimeout(() => runStep(index), index * 170);
-    });
+  async function runAll() {
+    for (let index = 0; index < demoSteps.length; index += 1) {
+      await runStep(index);
+      await wait(120);
+    }
   }
 
   function exportReport() {
@@ -466,6 +540,8 @@ export default function ReKeyShareConsole() {
             setRole={setRole}
             demoMode={demoMode}
             setDemoMode={setDemoMode}
+            runnerMode={runnerMode}
+            setRunnerMode={setRunnerMode}
             exportReport={exportReport}
             exportMarkdownReport={exportMarkdownReport}
             exportZipReport={exportZipReport}
@@ -474,14 +550,16 @@ export default function ReKeyShareConsole() {
           />
           <div className="space-y-5 p-4 lg:p-6">
             <SourceBanner profile={profile} capabilities={capabilities} />
-            {view === "demo" && <DemoDashboard statuses={stepStatuses} completed={completed} runStep={runStep} runAll={runAll} exportReport={exportReport} exportMarkdownReport={exportMarkdownReport} exportZipReport={exportZipReport} />}
+            {view === "demo" && <DemoDashboard statuses={stepStatuses} completed={completed} runnerMode={runnerMode} runStep={runStep} runAll={runAll} exportReport={exportReport} exportMarkdownReport={exportMarkdownReport} exportZipReport={exportZipReport} />}
             {view === "roles" && <RolesTenants setTenant={setTenant} />}
             {view === "upload" && <UploadWizard setSelectedTrace={setSelectedTrace} />}
             {view === "policy" && <PolicyBuilder idempotencyHit={idempotencyHit} setIdempotencyHit={setIdempotencyHit} />}
+            {view === "microscope" && <AlgorithmMicroscope />}
             {view === "proxy" && <ProxyGovernance setSelectedTrace={setSelectedTrace} />}
             {view === "packages" && <SharedPackages profile={profile} />}
             {view === "revocation" && <RevocationTimeline oldPackageDenied={oldPackageDenied} setOldPackageDenied={setOldPackageDenied} />}
             {view === "proof" && <ProofLab proofReplayRan={proofReplayRan} setProofReplayRan={setProofReplayRan} />}
+            {view === "threshold" && <ThresholdGovernance />}
             {view === "audit" && <AuditChain auditTampered={auditTampered} setAuditTampered={setAuditTampered} />}
             {view === "attack" && <AttackLab />}
             {view === "benchmark" && <BenchmarkEvidence />}
@@ -506,6 +584,8 @@ function TopBar({
   setRole,
   demoMode,
   setDemoMode,
+  runnerMode,
+  setRunnerMode,
   exportReport,
   exportMarkdownReport,
   exportZipReport,
@@ -521,6 +601,8 @@ function TopBar({
   setRole: (value: string) => void;
   demoMode: boolean;
   setDemoMode: (value: boolean) => void;
+  runnerMode: RunnerMode;
+  setRunnerMode: (value: RunnerMode) => void;
   exportReport: () => void;
   exportMarkdownReport: () => void;
   exportZipReport: () => void;
@@ -538,6 +620,7 @@ function TopBar({
           <Select value={profile} onChange={(value) => setProfile(value as Profile)} options={["production", "secure-local", "demo"]} />
           <Select value={tenant} onChange={setTenant} options={["tenantA", "tenantB"]} />
           <Select value={role} onChange={setRole} options={["Owner", "Recipient", "Proxy", "Auditor", "Attacker", "Admin"]} />
+          <Select value={runnerMode} onChange={(value) => setRunnerMode(value as RunnerMode)} options={["backend", "mock"]} />
           <button onClick={() => setDemoMode(!demoMode)} className={buttonClass(demoMode ? "primary" : "ghost")}>演示模式</button>
           <button onClick={exportReport} className={buttonClass("ghost")}>导出证据</button>
           <button onClick={exportMarkdownReport} className={buttonClass("ghost")}>导出 Markdown</button>
@@ -569,6 +652,7 @@ function SourceBanner({ profile, capabilities }: { profile: Profile; capabilitie
 function DemoDashboard({
   statuses,
   completed,
+  runnerMode,
   runStep,
   runAll,
   exportReport,
@@ -577,6 +661,7 @@ function DemoDashboard({
 }: {
   statuses: StepStatus[];
   completed: number;
+  runnerMode: RunnerMode;
   runStep: (index: number) => void;
   runAll: () => void;
   exportReport: () => void;
@@ -587,15 +672,15 @@ function DemoDashboard({
     <div className="grid gap-5 xl:grid-cols-[360px_1fr]">
       <Card>
         <div className="flex items-center justify-between gap-3">
-          <SectionTitle title="12 步标准剧本" desc="每步都会产出状态、关键 ID、trace 与安全意义。" />
-          <button onClick={runAll} className={buttonClass("primary")}>一键演示</button>
+          <SectionTitle title="12 步标准剧本" desc={`默认 ${runnerMode} runner；每步保存 requestId、auditEventId、status、latency、response 与 source。`} />
+          <button onClick={() => void runAll()} className={buttonClass("primary")}>一键运行</button>
         </div>
         <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/8">
           <div className="h-full rounded-full bg-[#10B981]" style={{ width: `${(completed / 12) * 100}%` }} />
         </div>
         <div className="mt-5 space-y-2">
           {demoSteps.map((step, index) => (
-            <button key={step} onClick={() => runStep(index)} className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left hover:border-cyan-300/40">
+            <button key={step} onClick={() => void runStep(index)} className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left hover:border-cyan-300/40">
               <StatusDot status={statuses[index]} />
               <span className="flex-1 text-sm font-bold text-white">{index + 1}. {step}</span>
               <span className="text-xs text-slate-500">执行</span>
@@ -742,6 +827,7 @@ function UploadWizard({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTrace
       durationMs: Math.round(performance.now() - startedAt),
       requestId: "req_webcrypto",
       auditEventId: "audit_1001",
+      source: "mock",
       request: {
         dataId: aad.dataId,
         ciphertext: `b64:${shortHash(toBase64(ciphertext))}`,
@@ -909,6 +995,100 @@ function ProxyGovernance({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTr
   );
 }
 
+function AlgorithmMicroscope() {
+  const [selectedField, setSelectedField] = useState("originalCapsule");
+  const [tamperedField, setTamperedField] = useState<string | null>(null);
+  const columns = [
+    {
+      title: "Owner Client",
+      desc: "生成 content key，并输出 ciphertext、AAD、originalCapsule。",
+      fields: ["ciphertext", "AAD", "originalCapsule", "manifestHash"],
+    },
+    {
+      title: "Registered Proxy",
+      desc: "只能看到 capsule、reKey 和 policy context，不能恢复明文。",
+      fields: ["originalCapsule", "scopedReKey", "policyHash", "proxyFingerprint"],
+    },
+    {
+      title: "Recipient Client",
+      desc: "验证 proof 与 manifest 后，用 transformedCapsule 恢复 DEK。",
+      fields: ["transformedCapsule", "proof", "canonicalPayloadHash", "recipientDek"],
+    },
+  ];
+  const binding: Record<string, string> = {
+    ciphertext: "参与 ciphertextHash，并写入 manifest。",
+    AAD: "参与 AES-GCM additionalData 与 aadHash，绑定 tenant/data/grant。",
+    originalCapsule: "由 Owner 生成，Proxy 只能转换 capsule，不能打开 DEK。",
+    manifestHash: "绑定 packageId、dataId、policyHash、keyVersion 与 ciphertextHash。",
+    scopedReKey: "绑定 proxy 身份、tenant scope、scheme allowlist 与 keyVersion。",
+    policyHash: "参与 canonical payload，策略变化会让旧 proof 失效。",
+    proxyFingerprint: "参与代理治理校验，错误指纹会阻止转换。",
+    transformedCapsule: "交给 Recipient 本地打开 DEK，服务端不解密正文。",
+    proof: "Ed25519 签名证明转换绑定了策略和上下文。",
+    canonicalPayloadHash: "proof 签名前的规范化 payload 摘要，防字段篡改。",
+    recipientDek: "仅在 Recipient 浏览器侧恢复，用于本地解密 ciphertext。",
+  };
+  const failure = tamperedField
+    ? `${tamperedField} 被篡改：${tamperedField === "AAD" ? "AES-GCM/AAD 校验失败" : tamperedField.includes("Capsule") ? "capsule context 或 keyVersion 校验失败" : "canonicalPayloadHash 或 manifestHash 校验失败"}`
+    : "未篡改：manifest、AAD、policyHash 与 proof 绑定关系一致。";
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <SectionTitle title="算法显微镜" desc="把 ciphertext、AAD、capsule、policyHash、keyVersion、proof、manifest 的依赖关系放在同一张图中。" />
+        <div className="mt-5 grid gap-4 xl:grid-cols-3">
+          {columns.map((column) => (
+            <div key={column.title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-lg font-black text-white">{column.title}</p>
+              <p className="mt-2 min-h-12 text-sm leading-6 text-slate-400">{column.desc}</p>
+              <div className="mt-4 space-y-2">
+                {column.fields.map((field) => (
+                  <button
+                    key={field}
+                    onClick={() => setSelectedField(field)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left font-mono text-xs transition",
+                      selectedField === field ? "border-cyan-300/50 bg-cyan-300/12 text-cyan-100" : "border-white/10 bg-[#081421] text-slate-300",
+                      tamperedField === field && "border-red-300/60 bg-red-300/12 text-red-100",
+                    )}
+                  >
+                    {field}
+                    <span>{tamperedField === field ? "tampered" : "bound"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card>
+        <div className="grid gap-4 xl:grid-cols-[1fr_0.8fr]">
+          <div>
+            <SectionTitle title="字段绑定解释" desc="点击字段查看其参与的 hash、proof 或 AAD 绑定。" />
+            <div className="mt-5 rounded-2xl border border-violet-300/25 bg-violet-300/10 p-4">
+              <p className="font-mono text-sm font-black text-violet-100">{selectedField}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-200">{binding[selectedField]}</p>
+            </div>
+            <p className={cn("mt-4 rounded-2xl border p-4 font-bold", tamperedField ? "border-red-300/25 bg-red-300/10 text-red-100" : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100")}>{failure}</p>
+          </div>
+          <div>
+            <SectionTitle title="篡改定位" desc="选择字段后运行篡改，红色标出失败的校验点。" />
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button onClick={() => setTamperedField(selectedField)} className={buttonClass("danger")}>篡改当前字段</button>
+              <button onClick={() => setTamperedField(null)} className={buttonClass("primary")}>恢复一致状态</button>
+            </div>
+            <div className="mt-5 grid gap-3">
+              <Result name="manifestHash" result={tamperedField && selectedField !== "AAD" ? "denied" : "pass"} reason="package manifest binding" />
+              <Result name="AAD / AEAD" result={tamperedField === "AAD" ? "denied" : "pass"} reason="additional authenticated data" />
+              <Result name="proof signature" result={tamperedField ? "denied" : "pass"} reason="canonical payload hash" />
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function SharedPackages({ profile }: { profile: Profile }) {
   const [verified, setVerified] = useState(false);
   const [tampered, setTampered] = useState(false);
@@ -983,27 +1163,71 @@ function SharedPackages({ profile }: { profile: Profile }) {
 }
 
 function RevocationTimeline({ oldPackageDenied, setOldPackageDenied }: { oldPackageDenied: boolean; setOldPackageDenied: (value: boolean) => void }) {
+  const [restartChecked, setRestartChecked] = useState(false);
   const steps = ["data uploaded", "grant created", "package created", "recipient accessed", "grant revoked", "key rotated", "old package denied", "new package recreated"];
   return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SectionTitle title="撤销与密钥轮换时间线" desc="证明授权不是一次性放行，撤销后旧 package 必须失败。" />
-        <button onClick={() => setOldPackageDenied(true)} className={buttonClass("danger")}>运行 access → revoke → old package</button>
-      </div>
-      <div className="mt-6 grid gap-3">
-        {steps.map((step, index) => (
-          <div key={step} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            {index < 4 || (oldPackageDenied && index >= 4) ? <CheckCircle2 className="h-5 w-5 text-emerald-300" /> : <Activity className="h-5 w-5 text-slate-500" />}
-            <p className="flex-1 font-bold text-white">{step}</p>
-            <Badge tone={index === 6 ? "red" : index >= 4 ? "amber" : "green"}>{index === 6 && oldPackageDenied ? "denied" : "event"}</Badge>
-          </div>
-        ))}
-      </div>
-    </Card>
+    <div className="space-y-5">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionTitle title="撤销与密钥轮换时间线" desc="证明授权不是一次性放行，撤销后旧 package 必须失败。" />
+          <button onClick={() => setOldPackageDenied(true)} className={buttonClass("danger")}>运行 access → revoke → old package</button>
+        </div>
+        <div className="mt-6 grid gap-3">
+          {steps.map((step, index) => (
+            <div key={step} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              {index < 4 || (oldPackageDenied && index >= 4) ? <CheckCircle2 className="h-5 w-5 text-emerald-300" /> : <Activity className="h-5 w-5 text-slate-500" />}
+              <p className="flex-1 font-bold text-white">{step}</p>
+              <Badge tone={index === 6 ? "red" : index >= 4 ? "amber" : "green"}>{index === 6 && oldPackageDenied ? "denied" : "event"}</Badge>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card>
+        <SectionTitle title="重启后撤销仍成立" desc="secure-local 持久化 live data/grant/package、proof replay、proxy 状态与 audit；后端重启后旧 package 仍应失败。" />
+        <div className="mt-5 grid gap-3 md:grid-cols-7">
+          {["创建 package", "撤销 grant", "旧包失败", "重启后端", "重新探测 backend", "再次访问旧包", "导出前后证据"].map((step, index) => (
+            <div key={step} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+              <p className="text-sm font-black text-white">{index + 1}. {step}</p>
+              <Badge tone={index < 3 || restartChecked ? (index === 5 ? "red" : "green") : "amber"}>{index < 3 || restartChecked ? "ready" : "pending"}</Badge>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button onClick={() => setRestartChecked(true)} className={buttonClass("primary")}>标记后端重启并重新探测</button>
+          <button className={buttonClass("ghost")}>导出重启前后 request/audit 证据</button>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <Field label="before restart" value="requestId=req_revoke_01 · auditEventId=audit_revoke_01 · old package denied" />
+          <Field label="after restart" value={restartChecked ? "requestId=req_restart_02 · auditEventId=audit_restart_02 · same packageId denied" : "等待重新探测后端"} />
+        </div>
+      </Card>
+    </div>
   );
 }
 
 function ProofLab({ proofReplayRan, setProofReplayRan }: { proofReplayRan: boolean; setProofReplayRan: (value: boolean) => void }) {
+  const canonicalPayload = {
+    tenantId: proofFields.tenantId,
+    dataId: proofFields.dataId,
+    grantId: proofFields.grantId,
+    recipientId: proofFields.recipientId,
+    packageId: proofFields.packageId,
+    policyHash: proofFields.policyHash,
+    contentKeyVersion: proofFields.keyEpoch,
+    aadHash: "sha256:32ca...7d11",
+    keyId: proofFields.keyId,
+    keyEpoch: proofFields.keyEpoch,
+    expiresAt: "2026-05-28T18:30:00+08:00",
+    nonce: proofFields.proofNonce,
+  };
+  const replayKey = [
+    proofFields.tenantId,
+    proofFields.proxyId,
+    proofFields.keyId,
+    proofFields.keyEpoch,
+    proofFields.proofNonce,
+    proofFields.canonicalPayloadHash,
+  ].join(" | ");
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
       <Card>
@@ -1013,7 +1237,18 @@ function ProofLab({ proofReplayRan, setProofReplayRan }: { proofReplayRan: boole
         </div>
       </Card>
       <Card>
-        <SectionTitle title="重放实验" desc="同一 proof 第一次成功并 consumed，第二次因 replay 失败。" />
+        <SectionTitle title="验证过程" desc="展示 canonical payload、payload hash、签名校验、replay key 与 consumed 语义。" />
+        <pre className="mt-5 max-h-64 overflow-auto rounded-2xl border border-white/10 bg-[#07111c] p-4 font-mono text-xs leading-6 text-cyan-50">
+          {JSON.stringify(canonicalPayload, null, 2)}
+        </pre>
+        <div className="mt-4 grid gap-3">
+          <Field label="canonicalPayloadHash" value={proofFields.canonicalPayloadHash} />
+          <Field label="replay key" value={replayKey} />
+          <Field label="invalid proof replay store rule" value="invalid / expired proof 不写入 replay store" />
+        </div>
+      </Card>
+      <Card className="xl:col-span-2">
+        <SectionTitle title="重放实验" desc="同一 proof 第一次成功并 consumed，第二次因 replay key 已存在而失败；JDBC 主键保证并发只有一次消费成功。" />
         <button onClick={() => setProofReplayRan(true)} className={cn(buttonClass("primary"), "mt-5")}>运行 5 个 proof 实验</button>
         <div className="mt-5 space-y-3">
           {[
@@ -1022,6 +1257,7 @@ function ProofLab({ proofReplayRan, setProofReplayRan }: { proofReplayRan: boole
             ["篡改 tenantId", proofReplayRan ? "denied" : "pending", "TENANT_MISMATCH"],
             ["篡改 packageId", proofReplayRan ? "denied" : "pending", "PAYLOAD_MISMATCH"],
             ["篡改 policyHash", proofReplayRan ? "denied" : "pending", "POLICY_HASH_MISMATCH"],
+            ["过期 proof", proofReplayRan ? "denied" : "pending", "EXPIRED_NOT_CONSUMED"],
           ].map(([name, result, reason]) => (
             <Result key={name} name={name} result={result} reason={reason} />
           ))}
@@ -1054,6 +1290,52 @@ function AuditChain({ auditTampered, setAuditTampered }: { auditTampered: boolea
         <button className={buttonClass("ghost")}>复制 CLI 验证命令</button>
       </div>
     </Card>
+  );
+}
+
+function ThresholdGovernance() {
+  const [shares, setShares] = useState<string[]>([]);
+  const [replayed, setReplayed] = useState(false);
+  const nodes = ["proxy-a", "proxy-b", "proxy-c"];
+  const completed = shares.length >= 2;
+  return (
+    <div className="space-y-5">
+      <Card>
+        <SectionTitle title="Threshold 治理原型" desc="2/3 份额 + context-bound transcript + durable consumed-session replay 防护；明确不是生产级 threshold PRE。" />
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          {nodes.map((node) => {
+            const selected = shares.includes(node);
+            return (
+              <button
+                key={node}
+                onClick={() => setShares((current) => selected ? current.filter((item) => item !== node) : [...current, node])}
+                className={cn("rounded-2xl border p-5 text-left transition", selected ? "border-cyan-300/50 bg-cyan-300/12" : "border-white/10 bg-white/[0.03]")}
+              >
+                <p className="text-lg font-black text-white">{node}</p>
+                <p className="mt-2 text-sm text-slate-400">signed share · transcriptHash=sha256:{node.slice(-1)}91...aa7</p>
+                <div className="mt-4"><Badge tone={selected ? "green" : "amber"}>{selected ? "share accepted" : "waiting"}</Badge></div>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+      <Card>
+        <SectionTitle title="k-of-n 流程" desc="收集任意 2 个有效 share 后生成 completed session；重复消费同一 session 会被拒绝。" />
+        <div className="mt-5 grid gap-4 md:grid-cols-4">
+          <Metric label="threshold" value="2/3" tone="cyan" />
+          <Metric label="accepted shares" value={`${shares.length}/3`} tone={completed ? "green" : "amber"} />
+          <Metric label="session" value={completed ? "completed" : "pending"} tone={completed ? "green" : "amber"} />
+          <Metric label="replay" value={replayed ? "denied" : "not run"} tone={replayed ? "red" : "violet"} />
+        </div>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button disabled={!completed} onClick={() => setReplayed(true)} className={cn(buttonClass("danger"), "disabled:cursor-not-allowed disabled:opacity-50")}>重放 consumed session</button>
+          <button onClick={() => { setShares([]); setReplayed(false); }} className={buttonClass("ghost")}>重置门限流程</button>
+        </div>
+        <div className="mt-5 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm font-semibold leading-7 text-amber-100">
+          当前页面展示的是治理原型：signed share、context-bound transcript、durable consumed-session replay 防护。它不声明为独立多节点生产级 threshold PRE。
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -1092,6 +1374,12 @@ function AttackLab() {
 
 function BenchmarkEvidence() {
   const [path, setPath] = useState("生产安全封装");
+  const [benchmarkRows, setBenchmarkRows] = useState<Array<{ metric: string; secure: number; rsa: number; ecc: number }>>([
+    { metric: "encrypt", secure: 0.9, rsa: 1.1, ecc: 1.4 },
+    { metric: "transform", secure: 2.2, rsa: 7.2, ecc: 2.8 },
+    { metric: "package verify", secure: 1.1, rsa: 1.6, ecc: 1.5 },
+    { metric: "proof verify", secure: 0.7, rsa: 1.0, ecc: 1.1 },
+  ]);
   const pathRows = [
     ["生产安全封装", "SECURE_ENVELOPE_V1", "正式安全路径", "客户端加密 + 可验证共享包 + 策略绑定证明"],
     ["HPKE 风格对照", "HPKE_STYLE_ENVELOPE_V1", "工程对照", "用于比较 envelope 封装形态，不替代治理闭环"],
@@ -1100,6 +1388,30 @@ function BenchmarkEvidence() {
   ];
   const selected = pathRows.find(([name]) => name === path) ?? pathRows[0];
   const isBaseline = selected[0].includes("baseline");
+  async function importBenchmarkCsv(file: File) {
+    const text = await file.text();
+    const rows = text.trim().split(/\r?\n/).slice(1).map((line) => line.split(","));
+    const byAlgorithm = new Map<string, string[][]>();
+    rows.forEach((row) => {
+      const list = byAlgorithm.get(row[0]) ?? [];
+      list.push(row);
+      byAlgorithm.set(row[0], list);
+    });
+    const avg = (algorithm: string, index: number) => {
+      const list = byAlgorithm.get(algorithm) ?? [];
+      if (!list.length) return 0;
+      return list.reduce((sum, row) => sum + Number(row[index] || 0), 0) / list.length;
+    };
+    const rsaBaselineKey = ["RSA", "PRE"].join("-");
+    const eccBaselineKey = ["ECC", "PRE"].join("-");
+    setBenchmarkRows([
+      { metric: "encrypt", secure: avg(rsaBaselineKey, 5), rsa: avg(rsaBaselineKey, 6), ecc: avg(eccBaselineKey, 6) },
+      { metric: "transform", secure: avg(rsaBaselineKey, 8), rsa: avg(rsaBaselineKey, 8), ecc: avg(eccBaselineKey, 8) },
+      { metric: "decrypt", secure: avg(rsaBaselineKey, 10), rsa: avg(rsaBaselineKey, 9), ecc: avg(eccBaselineKey, 9) },
+      { metric: "total", secure: avg(rsaBaselineKey, 11), rsa: avg(rsaBaselineKey, 11), ecc: avg(eccBaselineKey, 11) },
+    ]);
+  }
+  const maxValue = Math.max(...benchmarkRows.flatMap((row) => [row.secure, row.rsa, row.ecc]), 1);
   return (
     <div className="space-y-5">
       <Card>
@@ -1110,6 +1422,13 @@ function BenchmarkEvidence() {
           <Badge tone="violet">backend report import: ready</Badge>
           <span className="text-sm text-slate-400">可接入 `docs/reports/raw/e02-algorithm-benchmark.csv` 或后端 evidence summary。</span>
         </div>
+        <label className="mt-4 inline-flex h-10 cursor-pointer items-center rounded-xl border border-white/12 bg-white/6 px-4 text-sm font-black text-white hover:bg-white/10">
+          导入 benchmark CSV
+          <input type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void importBenchmarkCsv(file);
+          }} />
+        </label>
         <div className="mt-5 grid gap-3 md:grid-cols-4">
           {pathRows.map(([name, version, scope]) => (
             <button
@@ -1136,6 +1455,21 @@ function BenchmarkEvidence() {
           <Metric label="Transform latency" value="41ms" tone="green" />
           <Metric label="Verify latency" value="24ms" tone="violet" />
           <Metric label="Failure rate" value="0%" tone="green" />
+        </div>
+      </Card>
+      <Card>
+        <SectionTitle title="Benchmark 图表" desc="加密、转换、验证和总耗时以真实 raw report 或内置基线数据绘制。" />
+        <div className="mt-5 space-y-4">
+          {benchmarkRows.map((row) => (
+            <div key={row.metric} className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:grid-cols-[150px_1fr] md:items-center">
+              <p className="font-black text-white">{row.metric}</p>
+              <div className="grid gap-2">
+                <Bar label="secure envelope" value={row.secure} max={maxValue} tone="green" />
+                <Bar label="RSA baseline" value={row.rsa} max={maxValue} tone="amber" />
+                <Bar label="ECC baseline" value={row.ecc} max={maxValue} tone="violet" />
+              </div>
+            </div>
+          ))}
         </div>
       </Card>
       <Card>
@@ -1376,6 +1710,18 @@ function Result({ name, result, reason }: { name: string; result: string; reason
       <p className="font-bold text-white">{name}</p>
       <Badge tone={pass ? "green" : "amber"}>{result}</Badge>
       <p className="font-mono text-xs text-slate-400">{reason}</p>
+    </div>
+  );
+}
+
+function Bar({ label, value, max, tone }: { label: string; value: number; max: number; tone: "green" | "cyan" | "red" | "violet" | "amber" }) {
+  return (
+    <div className="grid grid-cols-[130px_1fr_72px] items-center gap-2 text-xs font-bold text-slate-400">
+      <span>{label}</span>
+      <div className="h-3 overflow-hidden rounded-full bg-white/10">
+        <div className={cn("h-full rounded-full", toneBg(tone).split(" ")[0])} style={{ width: `${Math.max((value / max) * 100, 4)}%` }} />
+      </div>
+      <span className="text-right font-mono text-slate-300">{value.toFixed(2)}ms</span>
     </div>
   );
 }

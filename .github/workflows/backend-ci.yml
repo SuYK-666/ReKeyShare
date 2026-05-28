@@ -26,9 +26,17 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-      - name: Frontend SBOM
+      - name: Frontend lint and build
         run: |
           npm ci
+          npm run lint
+          npm run build
+      - name: Frontend smoke tests
+        run: |
+          npx --yes playwright install --with-deps chromium
+          npx --yes playwright test tests/frontend-smoke.spec.ts --project=chromium
+      - name: Frontend SBOM
+        run: |
           npx --yes @cyclonedx/cyclonedx-npm --output-file target/bom-frontend.json
       - name: Security boundary guard
         run: sh scripts/check-security-boundary.sh
