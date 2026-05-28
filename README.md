@@ -151,6 +151,29 @@ mvn -q -DskipTests compile exec:java -Dexec.mainClass=com.example.pre.app.ReKeyS
 docker compose up --build
 ```
 
+### 启动前端控制台
+
+前端位于 `app/`、`components/` 与 `lib/`，提供平台展示首页和 ReKeyShare 控制台。
+
+```powershell
+npm install
+npm run dev
+```
+
+访问：
+
+- 首页：`http://localhost:3000/`
+- 控制台：`http://localhost:3000/console`
+
+控制台包含演示驾驶舱、客户端加密上传、对象级授权、代理治理、共享包 Inspector、撤销轮换、策略绑定证明、审计链、攻击验证实验室、性能与算法证据、CI 与交付证据、系统设置等入口。后端不可用时页面会明确标注 `source: mock`，不会把本地演示数据伪装成真实接口成功。
+
+前端提交前运行：
+
+```powershell
+npm run lint
+npm run build
+```
+
 ## API 概览
 
 实际可用路由以运行实例的 `/openapi.json` 为准；profile 会控制暴露的功能面。

@@ -11,16 +11,16 @@ export const demoSampleContent = `Confidential course project document.
 Proxy re-encryption allows a semi-trusted proxy to transform encrypted key capsules without seeing plaintext.`;
 
 export const demoPerformanceRows: ApiPerformance[] = [
-  { algorithm: "RSA-PRE", stage: "keygen", avgMs: 0.6831, p50Ms: 0.6806, p95Ms: 0.771, minMs: 0.5997, maxMs: 0.771, sizeBytes: 0 },
-  { algorithm: "RSA-PRE", stage: "encapsulate", avgMs: 0.5516, p50Ms: 0.5392, p95Ms: 0.6118, minMs: 0.5133, maxMs: 0.6118, sizeBytes: 304 },
-  { algorithm: "RSA-PRE", stage: "rekey", avgMs: 0.002, p50Ms: 0.0012, p95Ms: 0.0089, minMs: 0.0012, maxMs: 0.0089, sizeBytes: 0 },
-  { algorithm: "RSA-PRE", stage: "reencrypt", avgMs: 1.7082, p50Ms: 1.6888, p95Ms: 1.8141, minMs: 1.6802, maxMs: 1.8141, sizeBytes: 304 },
-  { algorithm: "RSA-PRE", stage: "decapsulate", avgMs: 1.7837, p50Ms: 1.742, p95Ms: 2.0123, minMs: 1.717, maxMs: 2.0123, sizeBytes: 32 },
-  { algorithm: "ECC-PRE", stage: "keygen", avgMs: 2.5649, p50Ms: 2.5715, p95Ms: 2.6796, minMs: 2.4193, maxMs: 2.6796, sizeBytes: 0 },
-  { algorithm: "ECC-PRE", stage: "encapsulate", avgMs: 5.2895, p50Ms: 5.2199, p95Ms: 6.5697, minMs: 4.8839, maxMs: 6.5697, sizeBytes: 113 },
-  { algorithm: "ECC-PRE", stage: "rekey", avgMs: 0.0096, p50Ms: 0.0076, p95Ms: 0.0185, minMs: 0.0068, maxMs: 0.0185, sizeBytes: 0 },
-  { algorithm: "ECC-PRE", stage: "reencrypt", avgMs: 2.4783, p50Ms: 2.4533, p95Ms: 2.6254, minMs: 2.3493, maxMs: 2.6254, sizeBytes: 113 },
-  { algorithm: "ECC-PRE", stage: "decapsulate", avgMs: 2.6927, p50Ms: 2.6445, p95Ms: 3.0061, minMs: 2.4763, maxMs: 3.0061, sizeBytes: 32 },
+  { algorithm: "RSA baseline", stage: "keygen", avgMs: 0.6831, p50Ms: 0.6806, p95Ms: 0.771, minMs: 0.5997, maxMs: 0.771, sizeBytes: 0 },
+  { algorithm: "RSA baseline", stage: "encapsulate", avgMs: 0.5516, p50Ms: 0.5392, p95Ms: 0.6118, minMs: 0.5133, maxMs: 0.6118, sizeBytes: 304 },
+  { algorithm: "RSA baseline", stage: "rekey", avgMs: 0.002, p50Ms: 0.0012, p95Ms: 0.0089, minMs: 0.0012, maxMs: 0.0089, sizeBytes: 0 },
+  { algorithm: "RSA baseline", stage: "reencrypt", avgMs: 1.7082, p50Ms: 1.6888, p95Ms: 1.8141, minMs: 1.6802, maxMs: 1.8141, sizeBytes: 304 },
+  { algorithm: "RSA baseline", stage: "decapsulate", avgMs: 1.7837, p50Ms: 1.742, p95Ms: 2.0123, minMs: 1.717, maxMs: 2.0123, sizeBytes: 32 },
+  { algorithm: "ECC baseline", stage: "keygen", avgMs: 2.5649, p50Ms: 2.5715, p95Ms: 2.6796, minMs: 2.4193, maxMs: 2.6796, sizeBytes: 0 },
+  { algorithm: "ECC baseline", stage: "encapsulate", avgMs: 5.2895, p50Ms: 5.2199, p95Ms: 6.5697, minMs: 4.8839, maxMs: 6.5697, sizeBytes: 113 },
+  { algorithm: "ECC baseline", stage: "rekey", avgMs: 0.0096, p50Ms: 0.0076, p95Ms: 0.0185, minMs: 0.0068, maxMs: 0.0185, sizeBytes: 0 },
+  { algorithm: "ECC baseline", stage: "reencrypt", avgMs: 2.4783, p50Ms: 2.4533, p95Ms: 2.6254, minMs: 2.3493, maxMs: 2.6254, sizeBytes: 113 },
+  { algorithm: "ECC baseline", stage: "decapsulate", avgMs: 2.6927, p50Ms: 2.6445, p95Ms: 3.0061, minMs: 2.4763, maxMs: 3.0061, sizeBytes: 32 },
 ];
 
 function demoUsers(algorithm: "RSA_PRE" | "ECC_PRE"): ApiUser[] {

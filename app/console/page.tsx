@@ -1,5 +1,5 @@
-import ProxyVaultConsole from "@/components/proxyvault-console";
+import ReKeyShareConsole from "@/components/rekeyshare-console";
 
 export default function ConsolePage() {
-  return <ProxyVaultConsole />;
+  return <ReKeyShareConsole />;
 }

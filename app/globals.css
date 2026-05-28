@@ -2,6 +2,17 @@
 
 :root {
   --radius: 1rem;
+  --rk-bg: #081421;
+  --rk-panel: #0f172a;
+  --rk-elevated: #111c2e;
+  --rk-cyan: #06b6d4;
+  --rk-green: #10b981;
+  --rk-violet: #6366f1;
+  --rk-amber: #f59e0b;
+  --rk-red: #e11d48;
+  --rk-text: #e5e7eb;
+  --rk-muted: #94a3b8;
+  --rk-border: #263244;
   color-scheme: dark;
 }
 
@@ -16,7 +27,18 @@ body {
 
 body {
   margin: 0;
-  background: #081421;
+  background: var(--rk-bg);
+  color: var(--rk-text);
   font-family:
     "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+body.rekeyshare-presentation {
+  font-size: 17px;
+}
+
+@media (max-width: 900px) {
+  table {
+    min-width: 680px;
+  }
 }
