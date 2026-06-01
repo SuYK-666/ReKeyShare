@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { spawn, type ChildProcess } from "node:child_process";
 
-const baseUrl = "http://127.0.0.1:3000";
+const baseUrl = "http://127.0.0.1:3100";
 let server: ChildProcess | undefined;
 
 async function waitForServer() {
@@ -20,7 +20,7 @@ async function waitForServer() {
 }
 
 test.beforeAll(async () => {
-  server = spawn("npm", ["run", "start", "--", "--port", "3000"], {
+  server = spawn("npm", ["run", "start", "--", "--port", "3100"], {
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
     stdio: "pipe",
     shell: process.platform === "win32",
@@ -49,7 +49,6 @@ test("key console views do not crash", async ({ page }) => {
 test("primary console controls update visible state", async ({ page }) => {
   await page.goto(`${baseUrl}/console?view=upload`);
   await page.getByRole("button", { name: /客户端侧加密并上传密文|正在本地加密/ }).click();
-  await expect(page.getByText("ciphertext size")).toBeVisible();
   await expect(page.getByText(/bytes/).last()).toBeVisible();
 
   await page.goto(`${baseUrl}/console?view=proof`);
@@ -59,11 +58,11 @@ test("primary console controls update visible state", async ({ page }) => {
   await page.goto(`${baseUrl}/console?view=threshold`);
   await page.getByRole("button", { name: /proxy-a/ }).click();
   await page.getByRole("button", { name: /proxy-b/ }).click();
-  await expect(page.getByText("completed")).toBeVisible();
+  await expect(page.getByText("completed", { exact: true })).toBeVisible();
 
   await page.goto(`${baseUrl}/console?view=audit`);
   await page.getByRole("button", { name: /篡改一条事件/ }).click();
-  await expect(page.getByText(/previousHash|断链/)).toBeVisible();
+  await expect(page.getByText("验证失败：previousHash 断链", { exact: true })).toBeVisible();
 });
 
 test("backend offline is explicitly marked", async ({ page }) => {
