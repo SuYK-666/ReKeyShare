@@ -49,7 +49,8 @@ test("key console views do not crash", async ({ page }) => {
 test("primary console controls update visible state", async ({ page }) => {
   await page.goto(`${baseUrl}/console?view=upload`);
   await page.getByRole("button", { name: /客户端侧加密并上传密文|正在本地加密/ }).click();
-  await expect(page.getByText(/已完成浏览器侧 AES-GCM 加密|AES-GCM/)).toBeVisible();
+  await expect(page.getByText("ciphertext size")).toBeVisible();
+  await expect(page.getByText(/bytes/).last()).toBeVisible();
 
   await page.goto(`${baseUrl}/console?view=proof`);
   await page.getByRole("button", { name: /运行 5 个 proof 实验/ }).click();
