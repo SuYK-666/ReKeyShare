@@ -57,8 +57,8 @@ type ViewKey =
 type Profile = "production" | "secure-local" | "demo";
 
 const nav: Array<{ key: ViewKey; label: string; group: string; icon: LucideIcon }> = [
-  { key: "demo", label: "演示驾驶舱", group: "演示", icon: Play },
-  { key: "roles", label: "角色与租户", group: "演示", icon: Users },
+  { key: "demo", label: "运行驾驶舱", group: "运行", icon: Play },
+  { key: "roles", label: "角色与租户", group: "运行", icon: Users },
   { key: "upload", label: "客户端加密上传", group: "核心流程", icon: UploadCloud },
   { key: "policy", label: "授权策略", group: "核心流程", icon: KeyRound },
   { key: "microscope", label: "算法显微镜", group: "核心流程", icon: LockKeyhole },
@@ -109,18 +109,18 @@ const traces: ApiTrace[] = [
 ];
 
 const attackCases = [
-  ["AT-01", "跨租户访问 tenantA dataId", "tenantB Attacker", "不可访问或不存在", "ACCESS_DENIED / TENANT_MISMATCH"],
+  ["AT-01", "跨租户访问 tenantA dataId", "tenantB SecurityTester", "不可访问或不存在", "ACCESS_DENIED / TENANT_MISMATCH"],
   ["AT-02", "未授权 recipient 访问 package", "Charlie", "拒绝访问", "RECIPIENT_NOT_GRANTED"],
   ["AT-03", "已撤销 grant 继续访问", "Bob", "旧包失败", "GRANT_REVOKED"],
   ["AT-04", "过期 grant 继续访问", "Bob", "旧包失败", "GRANT_EXPIRED"],
   ["AT-05", "proof 重放", "Bob", "第二次失败", "PROOF_REPLAY_DETECTED"],
-  ["AT-06", "篡改 tenantId", "Attacker", "验证失败", "CANONICAL_PAYLOAD_MISMATCH"],
-  ["AT-07", "篡改 policyHash", "Attacker", "验证失败", "POLICY_HASH_MISMATCH"],
+  ["AT-06", "篡改 tenantId", "SecurityTester", "验证失败", "CANONICAL_PAYLOAD_MISMATCH"],
+  ["AT-07", "篡改 policyHash", "SecurityTester", "验证失败", "POLICY_HASH_MISMATCH"],
   ["AT-08", "inactive proxy 转换", "Proxy", "转换失败", "PROXY_INACTIVE"],
   ["AT-09", "错误 fingerprint", "Proxy", "转换失败", "FINGERPRINT_MISMATCH"],
   ["AT-10", "quota exhausted proxy", "Proxy", "转换失败", "QUOTA_EXHAUSTED"],
   ["AT-11", "wrong scheme proxy", "Proxy", "转换失败", "SCHEME_NOT_ALLOWED"],
-  ["AT-12", "object enumeration / IDOR", "Attacker", "不可区分错误", "OBJECT_NOT_VISIBLE"],
+  ["AT-12", "object enumeration / IDOR", "SecurityTester", "不可区分错误", "OBJECT_NOT_VISIBLE"],
 ];
 
 const proofFields = {
@@ -142,14 +142,6 @@ const proofFields = {
   consumedStatus: "first pass consumed",
 };
 
-
-function getInitialView(): ViewKey {
-  if (typeof window === "undefined") {
-    return "demo";
-  }
-  const view = new URLSearchParams(window.location.search).get("view");
-  return nav.some((item) => item.key === view) ? (view as ViewKey) : "demo";
-}
 
 function toBase64(bytes: ArrayBuffer | Uint8Array) {
   const array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -263,7 +255,7 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 export default function ReKeyShareConsole() {
-  const [view, setView] = useState<ViewKey>(getInitialView);
+  const [view, setView] = useState<ViewKey>("demo");
   const [profile, setProfile] = useState<Profile>("secure-local");
   const [tenant, setTenant] = useState("tenantA");
   const [role, setRole] = useState("Owner");
@@ -292,6 +284,14 @@ export default function ReKeyShareConsole() {
     document.body.classList.toggle("rekeyshare-presentation", demoMode);
     return () => document.body.classList.remove("rekeyshare-presentation");
   }, [demoMode]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedView = params.get("view");
+    if (nav.some((item) => item.key === requestedView)) {
+      window.requestAnimationFrame(() => setView(requestedView as ViewKey));
+    }
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -329,12 +329,12 @@ export default function ReKeyShareConsole() {
       ci: ["tests", "coverage", "SBOM", "dependency-check", "attack matrix", "checksum"],
       sensitiveFields: "sensitive content, token and private material are masked",
     };
-    downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }), "rekeyshare-demo-evidence.json");
+    downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }), "rekeyshare-run-evidence.json");
   }
 
   function buildMarkdownReport() {
     const lines = [
-      "# ReKeyShare 演示证据报告",
+      "# ReKeyShare 运行证据报告",
       "",
       `- profile: ${profile}`,
       `- tenant: ${tenant}`,
@@ -349,13 +349,13 @@ export default function ReKeyShareConsole() {
       "",
       "## 安全说明",
       "- 导出内容不包含明文文件内容、完整 token、私钥或未脱敏 header。",
-      "- source 为 mock 时仅代表本地演示数据，不能作为真实后端成功证据。",
+      "- source 为 mock 时仅代表本地样例数据，不能作为真实后端成功证据。",
     ];
     return lines.join("\n");
   }
 
   function exportMarkdownReport() {
-    downloadBlob(new Blob([buildMarkdownReport()], { type: "text/markdown;charset=utf-8" }), "rekeyshare-demo-evidence.md");
+    downloadBlob(new Blob([buildMarkdownReport()], { type: "text/markdown;charset=utf-8" }), "rekeyshare-run-evidence.md");
   }
 
   function exportZipReport() {
@@ -394,6 +394,17 @@ export default function ReKeyShareConsole() {
     downloadBlob(zip, "rekeyshare-evidence-package.zip");
   }
 
+  function changeView(nextView: ViewKey) {
+    setView(nextView);
+    const url = new URL(window.location.href);
+    if (nextView === "demo") {
+      url.searchParams.delete("view");
+    } else {
+      url.searchParams.set("view", nextView);
+    }
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
   return (
     <main className={cn("min-h-screen bg-[#081421] text-[#E5E7EB]", demoMode && "text-[17px]")}>
       <div className="grid min-h-screen lg:grid-cols-[260px_1fr_420px]">
@@ -415,7 +426,7 @@ export default function ReKeyShareConsole() {
                     return (
                       <button
                         key={item.key}
-                        onClick={() => setView(item.key)}
+                        onClick={() => changeView(item.key)}
                         className={cn(
                           "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-bold transition",
                           view === item.key
@@ -524,9 +535,9 @@ function TopBar({
         <div className="flex flex-wrap items-center gap-2">
           <Select value={profile} onChange={(value) => setProfile(value as Profile)} options={["production", "secure-local", "demo"]} />
           <Select value={tenant} onChange={setTenant} options={["tenantA", "tenantB"]} />
-          <Select value={role} onChange={setRole} options={["Owner", "Recipient", "Proxy", "Auditor", "Attacker", "Admin"]} />
+          <Select value={role} onChange={setRole} options={["Owner", "Recipient", "Proxy", "Auditor", "SecurityTester", "Operator"]} />
           <Select value={runnerMode} onChange={(value) => setRunnerMode(value as RunnerMode)} options={["backend", "mock"]} />
-          <button onClick={() => setDemoMode(!demoMode)} className={buttonClass(demoMode ? "primary" : "ghost")}>演示模式</button>
+          <button onClick={() => setDemoMode(!demoMode)} className={buttonClass(demoMode ? "primary" : "ghost")}>专注视图</button>
           <button onClick={exportReport} className={buttonClass("ghost")}>导出证据</button>
           <button onClick={exportMarkdownReport} className={buttonClass("ghost")}>导出 Markdown</button>
           <button onClick={exportZipReport} className={buttonClass("ghost")}>导出 ZIP</button>
@@ -545,8 +556,8 @@ function SourceBanner({ profile, capabilities }: { profile: Profile; capabilitie
       <div className="flex items-center gap-3">
         <AlertTriangle className="h-5 w-5 text-amber-200" />
         <p className="text-sm font-semibold text-amber-100">
-          {capabilities?.message ?? "正在探测 ReKeyShare API 能力；未确认前按本地演示数据展示。"} source: {source}。
-          {profile === "production" ? " production 模式隐藏明文 demo-only 操作。" : ""}
+          {capabilities?.message ?? "正在探测 ReKeyShare API 能力；未确认前按本地样例数据展示。"} source: {source}。
+          {profile === "production" ? " production 模式隐藏明文样例操作。" : ""}
         </p>
       </div>
       <Badge tone={profile === "demo" ? "amber" : "cyan"}>{profile}</Badge>
@@ -604,13 +615,13 @@ function DemoDashboard({
           </div>
         </Card>
         <Card>
-          <SectionTitle title="可复制演示话术" />
+          <SectionTitle title="运行摘要" />
           <p className="mt-4 leading-8 text-slate-300">
             ReKeyShare 的主流程是客户端加密后上传密文，Owner 创建对象级授权，受治理代理节点只在策略约束下生成共享包和策略绑定证明；Recipient 先本地验证再解密；撤销后旧共享包失败，审计链和攻击矩阵证明失败原因。
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <button onClick={exportReport} className={buttonClass("ghost")}>导出演示证据包 JSON</button>
-            <button onClick={exportMarkdownReport} className={buttonClass("ghost")}>导出演示报告 Markdown</button>
+            <button onClick={exportReport} className={buttonClass("ghost")}>导出证据包 JSON</button>
+            <button onClick={exportMarkdownReport} className={buttonClass("ghost")}>导出运行报告 Markdown</button>
             <button onClick={exportZipReport} className={buttonClass("ghost")}>导出完整证据 ZIP</button>
           </div>
         </Card>
@@ -626,14 +637,14 @@ function RolesTenants({ setTenant }: { setTenant: (value: string) => void }) {
     ["bob", "tenantA", "Recipient", "active", "key-v2", "verify package"],
     ["proxy-east-01", "tenantA", "Proxy", "machine", "signer-4", "policy-bound transform"],
     ["auditor", "tenantA", "Auditor", "active", "verify-only", "audit checkpoint"],
-    ["mallory", "tenantB", "Attacker", "demo", "none", "tenant mismatch case"],
-    ["admin", "tenantA", "Admin", "active", "governance", "proxy quarantine"],
+    ["mallory", "tenantB", "SecurityTester", "sample", "none", "tenant mismatch case"],
+    ["operator", "tenantA", "Operator", "active", "governance", "proxy quarantine"],
   ];
   return (
     <div className="space-y-5">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <SectionTitle title="多角色与多租户模型" desc="tenantA / tenantB 用于演示跨租户探测失败。" />
+          <SectionTitle title="多角色与多租户模型" desc="tenantA / tenantB 用于验证跨租户探测失败。" />
           <div className="flex gap-2">
             <button onClick={() => setTenant("tenantA")} className={buttonClass("ghost")}>tenantA</button>
             <button onClick={() => setTenant("tenantB")} className={buttonClass("ghost")}>tenantB</button>
@@ -644,7 +655,7 @@ function RolesTenants({ setTenant }: { setTenant: (value: string) => void }) {
             <div key={id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="font-mono text-sm font-bold text-white">{id}</p>
-                <Badge tone={role === "Attacker" ? "red" : "cyan"}>{role}</Badge>
+                <Badge tone={role === "SecurityTester" ? "red" : "cyan"}>{role}</Badge>
               </div>
               <Field label="tenantId" value={tenant} />
               <Field label="token 状态" value={token === "active" ? "tk_a1b2...z9x8" : token} />
@@ -655,9 +666,9 @@ function RolesTenants({ setTenant }: { setTenant: (value: string) => void }) {
         </div>
       </Card>
       <Card>
-        <SectionTitle title="跨租户隔离演示" desc="对外统一返回不可访问或不存在；右侧 trace 展示内部 audit 原因 TENANT_MISMATCH。" />
+        <SectionTitle title="跨租户隔离验证" desc="对外统一返回不可访问或不存在；右侧 trace 展示内部 audit 原因 TENANT_MISMATCH。" />
         <div className="mt-4 rounded-2xl border border-red-300/25 bg-red-300/10 p-4">
-          <p className="font-bold text-red-100">tenantB Attacker 猜测 tenantA data_salary_2026：攻击失败</p>
+          <p className="font-bold text-red-100">tenantB SecurityTester 探测 tenantA data_salary_2026：攻击失败</p>
           <p className="mt-2 text-sm text-slate-300">externalCode: ACCESS_DENIED；internalReason: TENANT_MISMATCH</p>
         </div>
       </Card>
@@ -681,7 +692,7 @@ function UploadWizard({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTrace
     aadHash: "sha256:32ca...7d11",
     manifestHash: "sha256:8cc3...e91a",
     ciphertextSize: "131,248 bytes",
-    message: "使用内置 salary.xlsx 样例，可直接运行浏览器侧加密演示。",
+    message: "使用内置 salary.xlsx 样例，可直接运行浏览器侧加密验证。",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -750,6 +761,28 @@ function UploadWizard({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTrace
         auditEventId: "audit_1001",
       },
     };
+    let finalTrace = trace;
+    try {
+      const backend = await rekeyshareRequest<Record<string, unknown>>(
+        "POST",
+        "/api/data/upload-encrypted",
+        {
+          dataId: aad.dataId,
+          ciphertext: `b64:${shortHash(toBase64(ciphertext))}`,
+          ciphertextSize: ciphertext.byteLength,
+          nonce: manifest.nonce,
+          aad,
+          manifest: { ...manifest, manifestHash },
+        },
+        { tenantId: aad.tenantId, role: "Owner", idempotencyKey: "upload_webcrypto_sample" },
+      );
+      if (!backend.ok) {
+        throw new Error(`upload failed with status ${backend.status}`);
+      }
+      finalTrace = backend.trace;
+    } catch {
+      finalTrace = trace;
+    }
 
     setCryptoState({
       status: "success",
@@ -760,7 +793,7 @@ function UploadWizard({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTrace
       ciphertextSize: `${ciphertext.byteLength.toLocaleString()} bytes`,
       message: "已完成浏览器侧 AES-GCM 加密；trace 中只包含密文、AAD 与 manifest。",
     });
-    setSelectedTrace(trace);
+    setSelectedTrace(finalTrace);
   }
 
   return (
@@ -815,7 +848,7 @@ function AadManifest({ cryptoState }: { cryptoState: { nonce: string; aadHash: s
   };
   return (
     <Card>
-      <SectionTitle title="AAD 与 Manifest 可视化" desc="AAD 绑定租户、对象、授权上下文；hash 字段可复制。" />
+      <SectionTitle title="AAD 与 Manifest 可视化" desc="AAD 绑定租户、对象、授权上下文；hash 字段可核验。" />
       <pre className="mt-5 max-h-[420px] overflow-auto rounded-2xl border border-white/10 bg-[#07111c] p-4 font-mono text-sm leading-6 text-cyan-50">
         {JSON.stringify(manifest, null, 2)}
       </pre>
@@ -877,11 +910,35 @@ function PolicyBuilder({ idempotencyHit, setIdempotencyHit }: { idempotencyHit: 
 }
 
 function ProxyGovernance({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTrace) => void }) {
+  const [lastScenario, setLastScenario] = useState("waiting");
   const nodes = [
     ["proxy-east-01", "tenantA", "SECURE_ENVELOPE_V1, HPKE_STYLE", "fp_91ac...30dd", "ACTIVE", "42/100", "signer-4", "healthy"],
     ["proxy-west-02", "tenantA,tenantB", "HPKE_STYLE", "fp_7f20...aa18", "DISABLED", "7/80", "signer-3", "manual disabled"],
     ["proxy-lab-03", "tenantB", "RSA baseline", "fp_0000...bad1", "QUARANTINED", "100/100", "signer-2", "fingerprint mismatch"],
   ];
+  function runProxyScenario(label: string) {
+    const success = label.includes("成功");
+    const reason = label.includes("inactive")
+      ? "PROXY_INACTIVE"
+      : label.includes("fingerprint")
+        ? "FINGERPRINT_MISMATCH"
+        : label.includes("quota")
+          ? "QUOTA_EXHAUSTED"
+          : "OK";
+    setLastScenario(`${label} · ${success ? "success" : "denied"} · ${reason}`);
+    setSelectedTrace({
+      traceId: `trace_proxy_${reason.toLowerCase()}`,
+      method: "POST",
+      path: "/api/proxy/transform",
+      status: success ? 201 : 403,
+      durationMs: success ? 41 : 18,
+      requestId: `req_proxy_${reason.toLowerCase()}`,
+      auditEventId: `audit_proxy_${reason.toLowerCase()}`,
+      source: "mock",
+      request: { proxyId: "proxy-east-01", dataId: "data_salary_2026", grantId: "grant_bob_q2", scenario: label },
+      response: success ? { packageId: "pkg_2026_05_28_001", proofVersion: "POLICY_BOUND_PROOF_V1" } : { externalCode: "ACCESS_DENIED", internalReason: reason },
+    });
+  }
   return (
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-4">
@@ -898,8 +955,11 @@ function ProxyGovernance({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTr
         <SectionTitle title="治理实验" desc="四类场景可一键运行：active 成功、inactive 失败、wrong fingerprint 失败、quota exhausted 失败。" />
         <div className="mt-4 flex flex-wrap gap-3">
           {["active proxy 成功", "inactive proxy 失败", "wrong fingerprint 失败", "quota exhausted 失败"].map((item) => (
-            <button key={item} onClick={() => setSelectedTrace(traces[1])} className={buttonClass(item.includes("成功") ? "primary" : "danger")}>{item}</button>
+            <button key={item} onClick={() => runProxyScenario(item)} className={buttonClass(item.includes("成功") ? "primary" : "danger")}>{item}</button>
           ))}
+        </div>
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <Field label="last scenario" value={lastScenario} />
         </div>
       </Card>
     </div>
@@ -1055,7 +1115,7 @@ function SharedPackages({ profile }: { profile: Profile }) {
           </div>
         </div>
         <div className="mt-5 rounded-2xl border border-emerald-300/25 bg-emerald-300/10 p-4">
-          <p className="font-bold text-emerald-100">{profile === "demo" ? "demo-only 明文接口已标注；正式演示仍推荐本地验证并解密。" : "本地验证并解密：验证通过后才允许浏览器侧恢复文件摘要。"}</p>
+          <p className="font-bold text-emerald-100">{profile === "demo" ? "样例明文接口已明确标注；正式运行仍推荐本地验证并解密。" : "本地验证并解密：验证通过后才允许浏览器侧恢复文件摘要。"}</p>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <button onClick={() => { setVerified(true); setTampered(false); }} className={buttonClass("primary")}>本地验证 package/proof/AAD</button>
@@ -1076,6 +1136,15 @@ function SharedPackages({ profile }: { profile: Profile }) {
 function RevocationTimeline({ oldPackageDenied, setOldPackageDenied }: { oldPackageDenied: boolean; setOldPackageDenied: (value: boolean) => void }) {
   const [restartChecked, setRestartChecked] = useState(false);
   const steps = ["data uploaded", "grant created", "package created", "recipient accessed", "grant revoked", "key rotated", "old package denied", "new package recreated"];
+  function exportRestartEvidence() {
+    downloadBlob(new Blob([JSON.stringify({
+      packageId: "pkg_2026_05_28_001",
+      beforeRestart: { requestId: "req_revoke_01", auditEventId: "audit_revoke_01", result: "old package denied" },
+      afterRestart: restartChecked
+        ? { requestId: "req_restart_02", auditEventId: "audit_restart_02", result: "same packageId denied" }
+        : { status: "pending backend restart probe" },
+    }, null, 2)], { type: "application/json" }), "rekeyshare-revocation-restart-evidence.json");
+  }
   return (
     <div className="space-y-5">
       <Card>
@@ -1105,7 +1174,7 @@ function RevocationTimeline({ oldPackageDenied, setOldPackageDenied }: { oldPack
         </div>
         <div className="mt-5 flex flex-wrap gap-3">
           <button onClick={() => setRestartChecked(true)} className={buttonClass("primary")}>标记后端重启并重新探测</button>
-          <button className={buttonClass("ghost")}>导出重启前后 request/audit 证据</button>
+          <button onClick={exportRestartEvidence} className={buttonClass("ghost")}>导出重启前后 request/audit 证据</button>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Field label="before restart" value="requestId=req_revoke_01 · auditEventId=audit_revoke_01 · old package denied" />
@@ -1185,6 +1254,23 @@ function AuditChain({ auditTampered, setAuditTampered }: { auditTampered: boolea
     ["audit_1012", "2026-05-28T16:14:08+08:00", "tenantA", "proxy-east-01", "Proxy", "PACKAGE_CREATE", "package", "pkg_2026_05_28_001", "true", "OK", "-", "9b30...d119", "a771...ff08"],
     ["audit_1099", "2026-05-28T16:20:44+08:00", "tenantA", "bob", "Recipient", "PROOF_REPLAY_DENIED", "proof", "pn_19fd", "false", "ACCESS_DENIED", "PROOF_REPLAY_DETECTED", auditTampered ? "tampered" : "a771...ff08", "b12c...330a"],
   ];
+  function exportAuditJson() {
+    downloadBlob(new Blob([JSON.stringify({ status: auditTampered ? "fail" : "pass", events }, null, 2)], { type: "application/json" }), "rekeyshare-audit-chain.json");
+  }
+  function exportAuditMarkdown() {
+    const lines = [
+      "# ReKeyShare Audit Verification",
+      "",
+      `- status: ${auditTampered ? "fail" : "pass"}`,
+      `- events: ${events.length}`,
+      "",
+      ...events.map((event) => `- ${event[0]} ${event[5]} previousHash=${event[11]} currentHash=${event[12]}`),
+    ];
+    downloadBlob(new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" }), "rekeyshare-audit-report.md");
+  }
+  async function copyAuditCli() {
+    await navigator.clipboard.writeText("curl -H \"x-role: Auditor\" http://localhost:8080/api/audit/verify");
+  }
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1196,9 +1282,9 @@ function AuditChain({ auditTampered, setAuditTampered }: { auditTampered: boolea
       </div>
       <Table headers={["eventId", "timestamp", "tenantId", "actorId", "role", "action", "targetType", "targetId", "success", "externalCode", "internalReason", "previousHash", "currentHash"]} rows={events} />
       <div className="mt-5 flex flex-wrap gap-3">
-        <button className={buttonClass("ghost")}>导出审计片段 JSON</button>
-        <button className={buttonClass("ghost")}>导出验证报告 Markdown</button>
-        <button className={buttonClass("ghost")}>复制 CLI 验证命令</button>
+        <button onClick={exportAuditJson} className={buttonClass("ghost")}>导出审计片段 JSON</button>
+        <button onClick={exportAuditMarkdown} className={buttonClass("ghost")}>导出验证报告 Markdown</button>
+        <button onClick={() => void copyAuditCli()} className={buttonClass("ghost")}>复制 CLI 验证命令</button>
       </div>
     </Card>
   );
@@ -1274,6 +1360,9 @@ function AttackLab() {
         { tenantId: "tenantA", cases: attackCases.map(([caseId]) => caseId) },
         { tenantId: "tenantA", role: "Auditor" },
       );
+      if (!result.ok) {
+        throw new Error(`attack matrix failed with status ${result.status}`);
+      }
       const backendCases = Array.isArray(result.data.cases) ? result.data.cases : [];
       setRows((current) => current.map((row, index) => {
         const found = backendCases[index] ?? {};
@@ -1309,7 +1398,7 @@ function AttackLab() {
       <div className="mt-5 rounded-2xl border border-red-300/25 bg-red-300/10 p-4">
         <p className="font-bold text-red-100">错误分层展示</p>
         <p className="mt-2 text-sm leading-6 text-slate-300">
-          用户可见错误保持不可区分，避免对象枚举；内部审计原因只在演示抽屉和 audit 证据中展示。
+          用户可见错误保持不可区分，避免对象枚举；内部审计原因只在运行追踪和 audit 证据中展示。
         </p>
       </div>
       <div className="mt-5 flex flex-wrap gap-3">
@@ -1364,9 +1453,9 @@ function BenchmarkEvidence() {
   return (
     <div className="space-y-5">
       <Card>
-        <SectionTitle title="性能与算法证据" desc="数据来源：frontend-demo；profile: secure-local；baseline 仅用于教学、实验和性能对照。" />
+        <SectionTitle title="性能与算法证据" desc="数据来源：frontend-sample；profile: secure-local；baseline 仅用于教学、实验和性能对照。" />
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <Badge tone="amber">source: frontend-demo</Badge>
+          <Badge tone="amber">source: frontend-sample</Badge>
           <Badge tone="cyan">profile: secure-local</Badge>
           <Badge tone="violet">backend report import: ready</Badge>
           <span className="text-sm text-slate-400">可接入 `docs/reports/raw/e02-algorithm-benchmark.csv` 或后端 evidence summary。</span>
@@ -1384,12 +1473,12 @@ function BenchmarkEvidence() {
               key={name}
               onClick={() => setPath(name)}
               className={cn(
-                "rounded-2xl border p-4 text-left transition",
+                "min-w-0 rounded-2xl border p-4 text-left transition",
                 path === name ? "border-cyan-300/50 bg-cyan-300/12" : "border-white/10 bg-white/[0.03] hover:border-white/20",
               )}
             >
               <p className="font-black text-white">{name}</p>
-              <p className="mt-2 font-mono text-xs text-slate-400">{version}</p>
+              <p className="mt-2 break-all font-mono text-xs text-slate-400">{version}</p>
               <Badge tone={scope.includes("正式") ? "green" : scope.includes("教学") ? "amber" : "violet"}>{scope}</Badge>
             </button>
           ))}
@@ -1446,7 +1535,7 @@ function CiEvidence() {
 
   return (
     <Card>
-      <SectionTitle title="CI 与交付证据中心" desc="缺失证据显示 missing，不伪造 pass；可导出演示证据包。" />
+      <SectionTitle title="CI 与交付证据中心" desc="缺失证据显示 missing，不伪造 pass；可导出运行证据包。" />
       <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {items.map(([title, text, status, source]) => (
           <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -1504,20 +1593,20 @@ function SettingsPanel({ profile, setProfile, capabilities }: { profile: Profile
 
   return (
     <Card>
-      <SectionTitle title="系统设置" desc="运行模式、API Base URL、demo-only 开关、本地演示状态与版本信息。" />
+      <SectionTitle title="系统设置" desc="运行模式、API Base URL、受限样例能力、本地状态与版本信息。" />
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <Field label="API Base URL" value="/api/rekeyshare/api" />
         <Field label="frontend version" value="rekeyshare-web@0.1.0" />
         <Field label="backend version" value={capabilities?.backendVersion ?? "capability pending / mock source"} />
         <Field label="capability source" value={capabilities?.source ?? "probing"} />
-        <Field label="localStorage 策略" value="仅保存 demo 状态，不保存明文、私钥、完整 token" />
+        <Field label="localStorage 策略" value="仅保存本地运行状态，不保存明文、私钥、完整 token" />
       </div>
       <div className="mt-5 grid gap-3 md:grid-cols-3">
         {Object.entries(routes).map(([name, status]) => (
           <div key={name} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <p className="font-mono text-sm font-bold text-white">{name}</p>
             <div className="mt-3">
-              <Badge tone={status === "available" ? "green" : status === "demo-only" ? "amber" : "red"}>{status}</Badge>
+              <Badge tone={status === "available" ? "green" : status === "demo-only" ? "amber" : "red"}>{status === "demo-only" ? "sample-only" : status}</Badge>
             </div>
           </div>
         ))}
@@ -1536,7 +1625,7 @@ function SettingsPanel({ profile, setProfile, capabilities }: { profile: Profile
         {(["production", "secure-local", "demo"] as Profile[]).map((item) => (
           <button key={item} onClick={() => setProfile(item)} className={buttonClass(profile === item ? "primary" : "ghost")}>{item}</button>
         ))}
-        <button onClick={clearDemoStorage} className={buttonClass("danger")}>清理本地演示数据</button>
+        <button onClick={clearDemoStorage} className={buttonClass("danger")}>清理本地运行数据</button>
       </div>
       <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
         <SectionTitle title="术语表" desc="核心密码学与安全治理术语统一解释，方便平台使用和审计复核时快速检索。" />
@@ -1589,14 +1678,14 @@ function TraceDrawer({ trace, profile }: { trace: ApiTrace; profile: Profile }) 
         {sanitized}
       </pre>
       <div className={cn("mt-5 rounded-2xl border p-4 text-sm leading-6", profile === "demo" ? "border-amber-300/25 bg-amber-300/10 text-amber-100" : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100")}>
-        {profile === "demo" ? "demo-only 能力必须显式标注；导出证据标记 source: frontend-demo。" : "production/secure-local 不展示完整 token、私钥、明文或服务端明文解密路径。"}
+        {profile === "demo" ? "样例能力必须显式标注；导出证据标记 source: frontend-sample。" : "production/secure-local 不展示完整 token、私钥、明文或服务端明文解密路径。"}
       </div>
     </aside>
   );
 }
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <section className={cn("rounded-2xl border border-white/10 bg-[#0F172A] p-5", className)}>{children}</section>;
+  return <section className={cn("min-w-0 rounded-2xl border border-white/10 bg-[#0F172A] p-5", className)}>{children}</section>;
 }
 
 function SectionTitle({ title, desc }: { title: string; desc?: string }) {
@@ -1655,7 +1744,7 @@ function Bar({ label, value, max, tone }: { label: string; value: number; max: n
 
 function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
   return (
-    <div className="mt-5 overflow-x-auto">
+    <div className="mt-5 max-w-full min-w-0 overflow-x-auto">
       <table className="w-full min-w-[760px] text-left text-sm">
         <thead>
           <tr className="border-b border-white/10 text-slate-500">

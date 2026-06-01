@@ -13,6 +13,8 @@ export type ReKeyShareRoute =
 
 export type ClientResult<T> = {
   data: T;
+  ok: boolean;
+  status: number;
   trace: ApiTrace;
 };
 
@@ -47,6 +49,8 @@ export async function rekeyshareRequest<T>(
   const record = typeof data === "object" && data !== null ? data as Record<string, unknown> : { body: String(data) };
   return {
     data,
+    ok: response.ok,
+    status: response.status,
     trace: {
       traceId: `trace_${requestId}`,
       method,

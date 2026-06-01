@@ -22,7 +22,7 @@ const innovations = [
     title: "重启后仍成立的撤销语义",
     text: "撤销和密钥轮换会让旧共享包失效，并进入审计证据链。",
     href: "/console?view=revocation",
-    badge: "demo",
+    badge: "local",
     icon: RotateCcwKey,
   },
   {
@@ -61,8 +61,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#081421] text-[#E5E7EB]">
       <section className="relative overflow-hidden border-b border-white/10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_18%,rgba(6,182,212,0.22),transparent_30%),radial-gradient(circle_at_78%_20%,rgba(99,102,241,0.18),transparent_28%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:48px_48px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(6,182,212,0.16),rgba(15,23,42,0)_38%),linear-gradient(315deg,rgba(99,102,241,0.13),rgba(15,23,42,0)_42%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:56px_56px]" />
         <div className="relative mx-auto grid min-h-[92vh] max-w-7xl gap-10 px-5 pb-12 pt-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100">
@@ -83,7 +83,7 @@ export default function Home() {
                 href="/console"
                 className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#06B6D4] px-5 text-sm font-bold text-[#081421] transition hover:bg-cyan-300"
               >
-                进入演示控制台
+                进入运行控制台
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <a
@@ -108,7 +108,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div id="architecture" className="rounded-3xl border border-white/12 bg-[#0F172A]/86 p-5 shadow-2xl shadow-black/30">
+          <div id="architecture" className="rounded-lg border border-white/12 bg-[#0F172A]/86 p-5 shadow-2xl shadow-black/30">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-bold text-cyan-200">安全边界架构</p>
@@ -122,7 +122,7 @@ export default function Home() {
                   <div className="flex h-8 w-8 items-center justify-center rounded-full border border-cyan-300/35 bg-cyan-300/12 text-sm font-black text-cyan-100">
                     {index + 1}
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-bold text-white">{item}</p>
                       <span className="rounded-full bg-[#6366F1]/16 px-2.5 py-1 text-xs font-bold text-violet-100">
@@ -152,7 +152,7 @@ export default function Home() {
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-bold text-cyan-200">创新点</p>
-            <h2 className="mt-2 text-3xl font-black text-white">管理员可以直接点击验证的 6 个入口</h2>
+            <h2 className="mt-2 text-3xl font-black text-white">可复核的 6 个安全验证入口</h2>
           </div>
           <p className="max-w-xl text-sm leading-6 text-slate-400">
             每张卡片都对应控制台页面和证据类型，展示 ReKeyShare 不是普通文件分享，而是带证明、撤销和审计的安全闭环。
@@ -165,7 +165,7 @@ export default function Home() {
               <Link
                 key={item.title}
                 href={item.href}
-                className="group rounded-3xl border border-white/10 bg-[#0F172A] p-5 transition hover:-translate-y-1 hover:border-cyan-300/60"
+                className="group rounded-lg border border-white/10 bg-[#0F172A] p-5 transition hover:-translate-y-1 hover:border-cyan-300/60"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-300/12 text-cyan-100">
@@ -175,7 +175,7 @@ export default function Home() {
                 </div>
                 <h3 className="mt-5 text-xl font-black text-white">{item.title}</h3>
                 <p className="mt-3 min-h-16 text-sm leading-6 text-slate-400">{item.text}</p>
-                <p className="mt-5 text-sm font-bold text-cyan-200 group-hover:text-cyan-100">查看演示</p>
+                <p className="mt-5 text-sm font-bold text-cyan-200 group-hover:text-cyan-100">查看详情</p>
               </Link>
             );
           })}

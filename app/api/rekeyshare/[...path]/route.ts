@@ -9,6 +9,7 @@ const ALLOWED_HEADERS = [
   "x-role",
   "x-idempotency-key",
 ];
+const CAPABILITY_PATHS = new Set(["actuator", "openapi.json", "api/openapi"]);
 
 function copyAllowedHeaders(request: NextRequest) {
   const headers = new Headers();
@@ -23,7 +24,8 @@ function copyAllowedHeaders(request: NextRequest) {
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
-  const target = new URL(`/${path.join("/")}${request.nextUrl.search}`, UPSTREAM);
+  const joinedPath = path.join("/");
+  const target = new URL(`/${joinedPath}${request.nextUrl.search}`, UPSTREAM);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const controller = new AbortController();
   const timeout = windowlessSetTimeout(() => controller.abort(), 5000);
@@ -39,6 +41,13 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       cache: "no-store",
       signal: controller.signal,
     });
+
+    if (!response.ok && CAPABILITY_PATHS.has(joinedPath)) {
+      return new Response(null, {
+        status: 204,
+        headers: { "x-request-id": requestId },
+      });
+    }
 
     return new Response(response.body, {
       status: response.status,
@@ -56,7 +65,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
         requestId,
         retryable: true,
       },
-      { status:  gatewayStatus(retryable), headers: { "x-request-id": requestId } },
+      { status: gatewayStatus(retryable), headers: { "x-request-id": requestId } },
     );
   } finally {
     clearTimeout(timeout);

@@ -26,7 +26,7 @@ const fallbackCapabilities: CapabilitySummary = {
     demoDecrypt: "demo-only",
   },
   discoveredPaths: [],
-  message: "后端能力端点暂不可用，当前展示本地演示数据。",
+  message: "后端能力端点暂不可用，当前展示本地样例数据。",
 };
 
 export async function discoverCapabilities(): Promise<CapabilitySummary> {

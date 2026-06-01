@@ -5,7 +5,7 @@ import { ArrowRight, CheckCircle2, Link2, LockKeyhole, ShieldAlert } from "lucid
 import { cn } from "@/lib/utils";
 
 const flow = [
-  "Owner plaintext",
+  "Owner local content",
   "local AES-GCM",
   "ciphertext + AAD + capsule",
   "backend storage",
