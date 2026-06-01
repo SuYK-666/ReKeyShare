@@ -34,10 +34,10 @@ export const scenarioRequests = [
 ] satisfies Array<{ method: string; path: string; request: Record<string, unknown> }>;
 
 export async function runScenarioStep(index: number, mode: RunnerMode): Promise<ApiTrace> {
-  if (mode === "mock") {
+  const scenario = scenarioRequests[index];
+  if (mode === "mock" || scenario.path.startsWith("/api/demo/")) {
     return mockScenarioTrace(index);
   }
-  const scenario = scenarioRequests[index];
   const result = await rekeyshareRequest<Record<string, unknown>>(
     scenario.method as "GET" | "POST",
     scenario.path,

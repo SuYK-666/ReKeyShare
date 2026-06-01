@@ -1,8 +1,26 @@
 import { expect, test } from "@playwright/test";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { createServer } from "node:net";
 
-const baseUrl = "http://127.0.0.1:3100";
+let baseUrl = "";
 let server: ChildProcess | undefined;
+
+async function findFreePort() {
+  return new Promise<number>((resolve, reject) => {
+    const probe = createServer();
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      probe.close(() => {
+        if (address && typeof address === "object") {
+          resolve(address.port);
+        } else {
+          reject(new Error("could not allocate free port"));
+        }
+      });
+    });
+  });
+}
 
 async function waitForServer() {
   const deadline = Date.now() + 30_000;
@@ -20,7 +38,9 @@ async function waitForServer() {
 }
 
 test.beforeAll(async () => {
-  server = spawn("npm", ["run", "start", "--", "--port", "3100"], {
+  const port = await findFreePort();
+  baseUrl = `http://127.0.0.1:${port}`;
+  server = spawn("npm", ["run", "start", "--", "--port", String(port)], {
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
     stdio: "pipe",
     shell: process.platform === "win32",
@@ -29,7 +49,14 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(() => {
-  server?.kill();
+  if (!server?.pid || server.killed) {
+    return;
+  }
+  if (process.platform === "win32") {
+    execFileSync("taskkill", ["/pid", String(server.pid), "/T", "/F"], { stdio: "ignore" });
+  } else {
+    server.kill();
+  }
 });
 
 test("home and console open", async ({ page }) => {

@@ -301,11 +301,14 @@ export default function ReKeyShareConsole() {
       }
       setCapabilities(summary);
       setProfile(summary.profile);
+      if (!summary.online) {
+        setRunnerMode("mock");
+      }
     });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [setRunnerMode]);
 
   function exportReport() {
     const payload = {
