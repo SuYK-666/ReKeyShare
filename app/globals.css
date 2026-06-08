@@ -1,8 +1,20 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 :root {
   --radius: 1rem;
   color-scheme: dark;
+
+  /* Monochrome palette: deep charcoal canvas, white/black/grey accents only */
+  --color-canvas: #081421;
+  --color-accent: #ffffff;
+  --color-accent-soft: rgba(255, 255, 255, 0.14);
+  --color-ink: #0b0f14;
+  --color-ink-soft: rgba(11, 15, 20, 0.5);
+
+  /* Display font for headings / KPI numbers; mono for hashes, ids, code-like values */
+  --font-display: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
 }
 
 * {
@@ -16,7 +28,31 @@ body {
 
 body {
   margin: 0;
-  background: #081421;
+  background: var(--color-canvas);
   font-family:
     "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+/* Faint flowing curves used in place of hard card borders — a soft signal of
+   "data in motion" rather than a boxed-in grid. Kept at 6-9% opacity so it
+   reads as atmosphere, never competes with content. */
+.flow-lines {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.flow-lines svg {
+  width: 100%;
+  height: 100%;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
 }

@@ -7,13 +7,10 @@ import {
   BadgeCheck,
   ClipboardList,
   Home,
-  LockKeyhole,
   RotateCw,
-  ShieldCheck,
   UploadCloud,
   UnlockKeyhole,
   Users,
-  Video,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -31,6 +28,7 @@ import type {
 } from "@/lib/api-types";
 import { demoPerformanceRows, demoSampleContent, getDemoConsoleData } from "@/lib/demo-seed";
 import VideoBackdrop from "@/components/ui/video-backdrop";
+import FlowLines from "@/components/ui/flow-lines";
 
 type PageKey =
   | "dashboard"
@@ -281,13 +279,9 @@ function ProxyVaultConsole() {
   } | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [backendError, setBackendError] = useState<string | null>(null);
-  const [usingDemoData, setUsingDemoData] = useState(false);
+  const [, setUsingDemoData] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const activeLabel = useMemo(
-    () => pages.find((page) => page.key === activePage)?.label ?? "系统首页",
-    [activePage],
-  );
   const apiAlgorithm = toApiAlgorithm(algorithm);
 
   async function refreshData() {
@@ -483,12 +477,13 @@ function ProxyVaultConsole() {
         fixed
         overlayClassName="bg-[linear-gradient(180deg,rgba(4,18,31,0.58),rgba(4,18,31,0.86))]"
       />
+      <FlowLines />
       <section className="relative z-10 min-h-screen pt-[120px] lg:pt-[88px]">
-        <div className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#07111c]/82 backdrop-blur-xl">
+        <div className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#07111c]/55 backdrop-blur-xl">
           <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight text-white">
-                ProxyVault Data Security Sharing System
+              <h2 className="font-display text-2xl font-bold tracking-tight text-white">
+                ProxyVault <span className="text-white/56">Data Security Sharing System</span>
               </h2>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -504,10 +499,10 @@ function ProxyVaultConsole() {
                   key={item}
                   onClick={() => setAlgorithm(item)}
                   className={cn(
-                    "h-9 rounded-full border px-4 text-sm font-semibold transition",
+                    "h-9 rounded-full px-4 text-sm font-semibold transition",
                     algorithm === item
-                      ? "border-white/0 bg-white text-slate-950"
-                      : "border-white/14 bg-white/8 text-white/84 hover:bg-white/12",
+                      ? "bg-white text-slate-950 shadow-[0_0_18px_rgba(255,255,255,0.25)]"
+                      : "bg-white/8 text-white/84 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] hover:bg-white/12",
                   )}
                 >
                   {item}
@@ -519,7 +514,7 @@ function ProxyVaultConsole() {
 
         <section className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col gap-4 px-4 py-5 lg:block lg:px-6 lg:py-6 lg:pl-[280px]">
           <aside className="lg:fixed lg:left-[max(1.5rem,calc((100vw-1440px)/2+1.5rem))] lg:top-[112px] lg:z-30 lg:h-[calc(100vh-136px)] lg:w-56">
-            <nav className="flex gap-2 overflow-x-auto rounded-[28px] border border-white/12 bg-white/10 p-2 shadow-2xl shadow-black/20 backdrop-blur-xl lg:h-full lg:flex-col lg:overflow-x-visible lg:overflow-y-auto lg:p-3">
+            <nav className="flex gap-2 overflow-x-auto rounded-[28px] bg-white/6 p-2 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] backdrop-blur-xl lg:h-full lg:flex-col lg:overflow-x-visible lg:overflow-y-auto lg:p-3">
               {pages.map((page) => {
                 const Icon = page.icon;
 
@@ -531,23 +526,23 @@ function ProxyVaultConsole() {
                       "group relative inline-flex h-11 shrink-0 items-center gap-3 rounded-2xl px-4 text-sm font-semibold transition lg:w-full",
                       activePage === page.key
                         ? "bg-white text-slate-950 shadow-sm"
-                        : "bg-white/8 text-white/76 hover:bg-white/12 hover:text-white",
+                        : "bg-white/6 text-white/76 hover:bg-white/12 hover:text-white",
                     )}
                   >
                     <Icon
                       className={cn(
                         "h-4 w-4 shrink-0 transition",
-                        activePage === page.key ? "text-cyan-700" : "text-cyan-100/82",
+                        activePage === page.key ? "text-slate-950" : "text-white/50",
                       )}
                     />
                     <span className="whitespace-nowrap">{page.label}</span>
                     {page.badge ? (
                       <span
                         className={cn(
-                          "ml-auto rounded-full px-2 py-0.5 text-[10px]",
+                          "ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold",
                           activePage === page.key
-                            ? "bg-cyan-100 text-cyan-900"
-                            : "bg-cyan-200/90 text-cyan-950",
+                            ? "bg-slate-950 text-white"
+                            : "bg-white/16 text-white/76",
                         )}
                       >
                         {page.badge}
@@ -559,47 +554,17 @@ function ProxyVaultConsole() {
             </nav>
           </aside>
 
-          <div className="min-w-0 overflow-hidden rounded-[32px] border border-white/12 bg-white/10 shadow-2xl shadow-black/20 backdrop-blur-xl">
-            <div className="border-b border-white/12 px-5 py-6 text-white">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="grid size-14 place-items-center rounded-2xl bg-white text-lg font-bold text-slate-950">
-                    PV
-                  </div>
-                  <div>
-                    <h3 className="text-3xl font-bold tracking-tight text-white">{activeLabel}</h3>
-                  </div>
-                </div>
-                <p className="max-w-3xl text-sm leading-6 text-white/76">
-                  通过角色、密钥、密文、转换密钥和审计记录，把代理重加密的共享链路可视化。
-                </p>
-                <div className="flex flex-wrap gap-3 text-sm">
-                  <GlassMini icon={<Video className="h-4 w-4" />} text="统一视频背景板" />
-                  <GlassMini icon={<LockKeyhole className="h-4 w-4" />} text="密文存储与转换" />
-                  <GlassMini icon={<ShieldCheck className="h-4 w-4" />} text="半可信代理模型" />
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <StatusPill label="Alice 控制台 · 数据拥有者在线" />
-                <StatusPill label={`当前算法：${algorithm}`} />
-              </div>
-            </div>
-          </div>
-
-          <div className="p-5 lg:p-6">
-            {usingDemoData ? (
-              <div className="mb-5 rounded-3xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900">
-                当前展示本地演示数据（Alice / Bob / Charlie、sample-data.txt、审计记录与性能基准）。启动 Java API 的 demo profile 后会自动切换为实时数据。
-              </div>
-            ) : null}
+          <div className="min-w-0">
+          <div className="px-5 pb-5 lg:px-6 lg:pb-6">
             {backendError ? (
-              <div className="mb-5 rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+              <div className="mb-5 flex items-start gap-3 rounded-3xl bg-white/8 px-5 py-4 text-sm text-white/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)] backdrop-blur-md">
+                <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-white" />
                 当前还没连上 Java API：{backendError}
               </div>
             ) : null}
             {statusMessage ? (
-              <div className="mb-5 rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900">
+              <div className="mb-5 flex items-start gap-3 rounded-3xl bg-white text-sm font-semibold text-slate-950 shadow-[0_12px_40px_-18px_rgba(0,0,0,0.6)] px-5 py-4">
+                <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-slate-950" />
                 {statusMessage}
               </div>
             ) : null}
@@ -661,23 +626,6 @@ function ProxyVaultConsole() {
   );
 }
 
-function StatusPill({ label }: { label: string }) {
-  return (
-    <span className="inline-flex h-9 items-center rounded-full border border-white/14 bg-white/10 px-4 text-sm font-semibold text-white">
-      {label}
-    </span>
-  );
-}
-
-function GlassMini({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-4 py-2 text-white/84 backdrop-blur-md">
-      {icon}
-      {text}
-    </span>
-  );
-}
-
 function Card({
   children,
   className,
@@ -688,7 +636,7 @@ function Card({
   return (
     <div
       className={cn(
-        "min-w-0 rounded-[28px] border border-white/12 bg-white/88 p-5 shadow-lg shadow-slate-950/8 backdrop-blur-md",
+        "min-w-0 rounded-[28px] bg-white/72 p-5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2),0_20px_60px_-30px_rgba(0,0,0,0.55)] backdrop-blur-xl",
         className,
       )}
     >
@@ -706,7 +654,7 @@ function SectionTitle({
 }) {
   return (
     <div className="mb-4">
-      <h4 className="text-lg font-bold text-slate-950">{title}</h4>
+      <h4 className="font-display text-lg font-bold tracking-tight text-slate-950">{title}</h4>
       {desc ? <p className="mt-1 text-sm leading-6 text-slate-600">{desc}</p> : null}
     </div>
   );
@@ -739,7 +687,9 @@ function Dashboard({
           <Card key={metric.label}>
             <p className="text-sm font-semibold text-slate-500">{metric.label}</p>
             <div className="mt-3 flex items-end justify-between">
-              <span className="text-3xl font-bold">{metric.value}</span>
+              <span className="font-display text-3xl font-bold text-slate-950">
+                {metric.value}
+              </span>
               <span className="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
                 {metric.change}
               </span>
@@ -770,7 +720,7 @@ function Dashboard({
                 className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-3 text-sm font-semibold"
               >
                 <span className="min-w-0">{item}</span>
-                <span className="shrink-0 whitespace-nowrap text-emerald-600">通过</span>
+                <span className="shrink-0 whitespace-nowrap font-semibold text-slate-950">通过</span>
               </div>
             ))}
           </div>
@@ -787,32 +737,50 @@ function Dashboard({
 
 function FlowDiagram() {
   const nodes = [
-    ["Alice", "数据拥有者", "上传加密文件 C_A"],
-    ["Proxy", "代理服务器", "ReEncrypt(rk, C_A)"],
-    ["Bob", "被授权用户", "下载 C_B 并解密"],
+    { name: "Alice", role: "数据拥有者", desc: "上传加密文件 C_A", trust: "可信" },
+    { name: "Proxy", role: "代理服务器", desc: "ReEncrypt(rk_A_to_B, C_A)", trust: "半可信" },
+    { name: "Bob", role: "被授权用户", desc: "下载 C_B 并用私钥解密", trust: "可信" },
   ];
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_80px_1fr_80px_1fr] lg:items-center">
-      {nodes.map(([name, role, desc], index) => (
-        <div key={name} className="contents">
-          <div className="rounded-lg border border-slate-200 bg-gradient-to-br from-white to-cyan-50 p-5">
+    <div>
+      {/* Step rail: numbered nodes joined by a single flowing line — communicates
+          sequence and direction without boxing each step in a hard frame. */}
+      <div className="relative mb-7 hidden px-4 lg:block">
+        <div className="absolute inset-x-4 top-4 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+        <div className="relative grid grid-cols-3">
+          {nodes.map((node, index) => (
+            <div key={node.name} className={cn("flex", index === 1 ? "justify-center" : index === 0 ? "justify-start" : "justify-end")}>
+              <div className="grid size-8 place-items-center rounded-full bg-slate-950 font-display text-xs font-bold text-white ring-4 ring-white/70">
+                {index + 1}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {nodes.map((node) => (
+          <div
+            key={node.name}
+            className="rounded-2xl bg-white p-5 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08),0_16px_40px_-28px_rgba(15,23,42,0.45)]"
+          >
             <div className="flex items-center justify-between">
-              <p className="text-xl font-bold">{name}</p>
-              <span className="rounded bg-slate-950 px-2 py-1 text-xs font-semibold text-white">
-                {index === 1 ? "半可信" : "可信"}
+              <p className="font-display text-xl font-bold text-slate-950">{node.name}</p>
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                  node.trust === "半可信" ? "bg-slate-100 text-slate-600" : "bg-slate-950 text-white",
+                )}
+              >
+                {node.trust}
               </span>
             </div>
-            <p className="mt-2 text-sm font-semibold text-cyan-800">{role}</p>
-            <p className="mt-4 text-sm leading-6 text-slate-600">{desc}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-500">{node.role}</p>
+            <p className="mt-4 font-mono text-xs leading-6 text-slate-500">{node.desc}</p>
           </div>
-          {index < nodes.length - 1 ? (
-            <div className="hidden text-center text-2xl font-bold text-cyan-600 lg:block">
-              →
-            </div>
-          ) : null}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -858,7 +826,7 @@ function UsersPanel({
                     </span>
                   </td>
                   <td className="py-4 pr-4">{user.publicKey}</td>
-                  <td className="py-4 pr-4 font-semibold text-emerald-700">{user.privateKeyStatus}</td>
+                  <td className="py-4 pr-4 font-semibold text-[#3f6b46]">{user.privateKeyStatus}</td>
                   <td className="py-4 text-slate-600">
                     {user.role === "数据拥有者"
                       ? "上传文件并发起授权"
@@ -1097,7 +1065,7 @@ function AuthorizePanel({
           <div className="mb-4 grid gap-3">
             <label className="block text-sm font-semibold text-slate-700">
               当前待授权密文
-              <div className="mt-2 rounded-md bg-slate-50 px-3 py-3 text-sm font-bold text-slate-950">
+              <div className="mt-2 rounded-md bg-slate-50 px-3 py-3 font-mono text-sm font-bold text-slate-950">
                 {latestFile ? `${latestFile.fileName} · ${latestFile.dataId.slice(0, 8)}...` : "请先上传文件"}
               </div>
             </label>
@@ -1124,14 +1092,14 @@ function AuthorizePanel({
             ].map(([label, value]) => (
               <div key={label} className="rounded-md bg-slate-50 p-4">
                 <p className="text-xs font-semibold text-slate-500">{label}</p>
-                <p className="mt-1 break-words text-sm font-bold text-slate-950">{value}</p>
+                <p className="mt-1 break-words font-mono text-sm font-bold text-slate-950">{value}</p>
               </div>
             ))}
           </div>
         </Card>
         <Card>
           <SectionTitle title="代理执行结果" />
-          <div className="rounded-lg bg-slate-950 p-4 font-mono text-xs leading-6 text-cyan-100">
+          <div className="rounded-lg bg-[#04111c] p-4 font-mono text-xs leading-6 text-white/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
             input: file_001.C_A
             <br />
             rk: rk_A_to_B
@@ -1144,7 +1112,7 @@ function AuthorizePanel({
           </div>
           <button
             onClick={onAuthorize}
-            className="mt-4 h-10 w-full rounded-md bg-cyan-500 px-4 text-sm font-bold text-cyan-950 transition hover:bg-cyan-400"
+            className="mt-4 h-10 w-full rounded-md bg-white px-4 text-sm font-bold text-slate-950 transition hover:bg-white/88"
           >
             执行 ReEncrypt 演示
           </button>
@@ -1188,7 +1156,7 @@ function AccessPanel({
                   ].map((cell, index) => (
                     <td key={`${row.dataId}-${cell}-${index}`} className="py-4 pr-4">
                       {index === 4 ? (
-                        <span className="rounded bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+                        <span className="rounded bg-[#B8D8BA]/35 px-2 py-1 font-semibold text-[#3f6b46]">
                           {cell}
                         </span>
                       ) : (
@@ -1212,11 +1180,11 @@ function AccessPanel({
       </Card>
       <Card>
         <SectionTitle title="解密结果" />
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-lg font-bold text-emerald-900">
+        <div className="rounded-lg border border-[#B8D8BA]/60 bg-[#B8D8BA]/20 p-4">
+          <p className="text-lg font-bold text-[#355c3b]">
             {decryptResult?.success ? "解密成功" : "等待解密"}
           </p>
-          <p className="mt-2 text-sm leading-6 text-emerald-800">
+          <p className="mt-2 text-sm leading-6 text-[#3f6b46]">
             {decryptResult
               ? `文件完整性校验通过，SHA-256: ${decryptResult.sha256.slice(0, 20)}...`
               : "点击左侧“下载 / 解密”后，这里会显示真实后端返回的明文校验结果。"}
@@ -1249,7 +1217,7 @@ function ResultLine({
   return (
     <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-3">
       <span className="font-semibold">{label}</span>
-      <span className={cn("font-bold", danger ? "text-rose-600" : "text-emerald-700")}>
+      <span className={cn("font-bold", danger ? "text-[#c97b63]" : "text-[#3f6b46]")}>
         {result}
       </span>
     </div>
@@ -1314,8 +1282,8 @@ function AuditPanel({ events, compact }: { events: ApiAudit[]; compact?: boolean
                           className={cn(
                             "inline-flex min-w-[2.75rem] items-center justify-center rounded px-2 py-1 text-xs font-bold whitespace-nowrap",
                             cell.value === "拒绝"
-                              ? "bg-rose-50 text-rose-700"
-                              : "bg-emerald-50 text-emerald-700",
+                              ? "bg-[#F2C4A0]/40 text-[#9a5a36]"
+                              : "bg-[#B8D8BA]/35 text-[#3f6b46]",
                           )}
                         >
                           {cell.value}
@@ -1409,8 +1377,8 @@ function ComparePanel({ rows, compact }: { rows: ApiPerformance[]; compact?: boo
                 </span>
               </div>
               <div className="mt-4 grid gap-2">
-                <Bar label="RSA" value={row.rsa} max={max} className="bg-indigo-500" />
-                <Bar label="ECC" value={row.ecc} max={max} className="bg-cyan-500" />
+                <Bar label="RSA" value={row.rsa} max={max} className="bg-[#F4B8C2]" />
+                <Bar label="ECC" value={row.ecc} max={max} className="bg-[#AFC8E4]" />
               </div>
             </div>
           ))}
@@ -1560,12 +1528,12 @@ function PerformanceTrendChart({
   return (
     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
       <div className="mb-4 flex items-center gap-3 text-xs font-bold">
-        <span className="inline-flex items-center gap-2 text-indigo-600">
-          <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
+        <span className="inline-flex items-center gap-2 text-[#c2607c]">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#F4B8C2]" />
           RSA-PRE
         </span>
-        <span className="inline-flex items-center gap-2 text-cyan-700">
-          <span className="h-2.5 w-2.5 rounded-full bg-cyan-500" />
+        <span className="inline-flex items-center gap-2 text-[#5d83ad]">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#AFC8E4]" />
           ECC-PRE
         </span>
       </div>
@@ -1586,7 +1554,7 @@ function PerformanceTrendChart({
         })}
         <polyline
           fill="none"
-          stroke="#6366f1"
+          stroke="#E78AA0"
           strokeWidth="4"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -1594,7 +1562,7 @@ function PerformanceTrendChart({
         />
         <polyline
           fill="none"
-          stroke="#06b6d4"
+          stroke="#7FA8D4"
           strokeWidth="4"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -1604,8 +1572,8 @@ function PerformanceTrendChart({
           const x = padding + index * stepX;
           return (
             <g key={row.metric}>
-              <circle cx={x} cy={toY(row.rsa)} r="5" fill="#6366f1" />
-              <circle cx={x} cy={toY(row.ecc)} r="5" fill="#06b6d4" />
+              <circle cx={x} cy={toY(row.rsa)} r="5" fill="#E78AA0" />
+              <circle cx={x} cy={toY(row.ecc)} r="5" fill="#7FA8D4" />
               <text
                 x={x}
                 y={height - 6}
@@ -1636,8 +1604,8 @@ function SizeComparisonChart({
   return (
     <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
       {[
-        { label: "RSA-PRE", value: row.rsa, className: "bg-indigo-500" },
-        { label: "ECC-PRE", value: row.ecc, className: "bg-cyan-500" },
+        { label: "RSA-PRE", value: row.rsa, className: "bg-[#F4B8C2]" },
+        { label: "ECC-PRE", value: row.ecc, className: "bg-[#AFC8E4]" },
       ].map((item) => (
         <div key={item.label}>
           <div className="mb-2 flex items-center justify-between text-sm">
@@ -1709,7 +1677,7 @@ function VerifyPanel() {
         ["非授权访问验证", "Charlie 使用自己的私钥解密 Bob 密文失败。", "通过"],
       ].map(([title, text, status]) => (
         <Card key={title}>
-          <span className="rounded bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+          <span className="rounded bg-[#B8D8BA]/35 px-2 py-1 text-xs font-bold text-[#3f6b46]">
             {status}
           </span>
           <h4 className="mt-4 text-xl font-bold">{title}</h4>
