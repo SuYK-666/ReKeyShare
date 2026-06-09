@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -5,15 +6,13 @@
   --rk-bg: #081421;
   --rk-panel: #0f172a;
   --rk-elevated: #111c2e;
-  --rk-cyan: #06b6d4;
-  --rk-green: #10b981;
-  --rk-violet: #6366f1;
-  --rk-amber: #f59e0b;
-  --rk-red: #e11d48;
   --rk-text: #e5e7eb;
   --rk-muted: #94a3b8;
   --rk-border: #263244;
   color-scheme: dark;
+
+  --font-display: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
 }
 
 * {
@@ -35,6 +34,27 @@ body {
 
 body.rekeyshare-presentation {
   font-size: 17px;
+}
+
+.flow-lines {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.flow-lines svg {
+  width: 100%;
+  height: 100%;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
 }
 
 @media (max-width: 900px) {
