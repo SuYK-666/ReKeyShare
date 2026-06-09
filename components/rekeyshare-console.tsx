@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import FlowLines from "@/components/ui/flow-lines";
+import VideoBackdrop from "@/components/ui/video-backdrop";
 import { MechanismGraphs } from "@/components/console/mechanism-graphs";
 import { discoverCapabilities, type CapabilitySummary } from "@/lib/api/capabilities";
 import type { ApiTrace } from "@/lib/api/traces";
@@ -409,20 +411,22 @@ export default function ReKeyShareConsole() {
   }
 
   return (
-    <main className={cn("min-h-screen bg-[#081421] text-[#E5E7EB]", demoMode && "text-[17px]")}>
-      <div className="grid min-h-screen lg:grid-cols-[260px_1fr_420px]">
-        <aside className="border-r border-white/10 bg-[#0F172A] lg:sticky lg:top-0 lg:h-screen">
+    <main className={cn("relative min-h-screen bg-[#081421] text-[#E5E7EB]", demoMode && "text-[17px]")}>
+      <VideoBackdrop fixed overlayClassName="bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_30%),linear-gradient(180deg,rgba(5,17,30,0.5),rgba(5,17,30,0.82))]" />
+      <FlowLines />
+      <div className="relative z-10 grid min-h-screen lg:grid-cols-[260px_1fr_420px]">
+        <aside className="border-r border-white/10 bg-[#0b1929]/80 backdrop-blur-xl lg:sticky lg:top-0 lg:h-screen">
           <div className="flex h-20 items-center gap-3 border-b border-white/10 px-5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-300 text-lg font-black text-[#081421]">RK</div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-lg font-black text-slate-950">RK</div>
             <div>
-              <Link href="/" className="text-lg font-black text-white">ReKeyShare</Link>
-              <p className="text-xs font-semibold text-slate-400">控制台</p>
+              <Link href="/" className="font-display text-lg font-black text-white">ReKeyShare</Link>
+              <p className="text-xs font-semibold text-white/50">控制台</p>
             </div>
           </div>
           <nav className="space-y-5 p-3">
             {Array.from(new Set(nav.map((item) => item.group))).map((group) => (
               <div key={group}>
-                <p className="px-3 pb-2 text-xs font-bold text-slate-500">{group}</p>
+                <p className="px-3 pb-2 text-xs font-bold text-white/36">{group}</p>
                 <div className="space-y-1">
                   {nav.filter((item) => item.group === group).map((item) => {
                     const Icon = item.icon;
@@ -433,8 +437,8 @@ export default function ReKeyShareConsole() {
                         className={cn(
                           "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-bold transition",
                           view === item.key
-                            ? "border-cyan-300/40 bg-cyan-300/12 text-cyan-100"
-                            : "border-transparent text-slate-400 hover:bg-white/6 hover:text-white",
+                            ? "border-white/20 bg-white text-slate-950 shadow-sm"
+                            : "border-transparent text-white/54 hover:bg-white/8 hover:text-white",
                         )}
                       >
                         <Icon className="h-4 w-4" />
@@ -493,6 +497,7 @@ export default function ReKeyShareConsole() {
   );
 }
 
+
 function TopBar({
   title,
   profile,
@@ -529,11 +534,11 @@ function TopBar({
   capabilities: CapabilitySummary | null;
 }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-[#081421]/90 px-4 py-3 backdrop-blur lg:px-6">
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07111c]/60 px-4 py-3 backdrop-blur-xl lg:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-white">{title}</h1>
-          <p className="text-sm text-slate-400">ReKeyShare：基于代理重加密的数据安全共享管理系统</p>
+          <h1 className="font-display text-2xl font-black text-white">{title}</h1>
+          <p className="text-sm text-white/50">ReKeyShare：基于代理重加密的数据安全共享管理系统</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={profile} onChange={(value) => setProfile(value as Profile)} options={["production", "secure-local", "demo"]} />
@@ -555,10 +560,10 @@ function TopBar({
 function SourceBanner({ profile, capabilities }: { profile: Profile; capabilities: CapabilitySummary | null }) {
   const source = capabilities?.source ?? "mock";
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/12 bg-white/6 px-4 py-3 backdrop-blur-md">
       <div className="flex items-center gap-3">
-        <AlertTriangle className="h-5 w-5 text-amber-200" />
-        <p className="text-sm font-semibold text-amber-100">
+        <AlertTriangle className="h-5 w-5 text-white/60" />
+        <p className="text-sm font-semibold text-white/76">
           {capabilities?.message ?? "正在探测 ReKeyShare API 能力；未确认前按本地样例数据展示。"} source: {source}。
           {profile === "production" ? " production 模式隐藏明文样例操作。" : ""}
         </p>
@@ -1636,7 +1641,7 @@ function SettingsPanel({ profile, setProfile, capabilities }: { profile: Profile
           value={termQuery}
           onChange={(event) => setTermQuery(event.target.value)}
           placeholder="搜索 AAD / Proof / Grant / Threshold"
-          className="mt-4 h-11 w-full rounded-xl border border-white/10 bg-[#111C2E] px-3 text-sm font-bold text-white outline-none"
+          className="mt-4 h-11 w-full rounded-xl border border-white/14 bg-white/8 px-3 text-sm font-bold text-white outline-none"
         />
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {visibleTerms.map((item) => (
@@ -1688,7 +1693,7 @@ function TraceDrawer({ trace, profile }: { trace: ApiTrace; profile: Profile }) 
 }
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <section className={cn("min-w-0 rounded-2xl border border-white/10 bg-[#0F172A] p-5", className)}>{children}</section>;
+  return <section className={cn("min-w-0 rounded-2xl border border-white/14 bg-[#0b1929]/72 p-5 shadow-[0_8px_32px_-16px_rgba(0,0,0,0.5)] backdrop-blur-xl", className)}>{children}</section>;
 }
 
 function SectionTitle({ title, desc }: { title: string; desc?: string }) {
@@ -1702,7 +1707,7 @@ function SectionTitle({ title, desc }: { title: string; desc?: string }) {
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
       <p className="text-xs font-bold text-slate-500">{label}</p>
       <p className="mt-1 break-all font-mono text-sm font-bold text-slate-100">{value}</p>
     </div>
@@ -1779,7 +1784,7 @@ function StatusDot({ status }: { status: StepStatus }) {
 
 function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: string[] }) {
   return (
-    <select value={value} onChange={(event) => onChange(event.target.value)} className="h-10 rounded-xl border border-white/10 bg-[#111C2E] px-3 text-sm font-bold text-white outline-none">
+    <select value={value} onChange={(event) => onChange(event.target.value)} className="h-10 rounded-xl border border-white/14 bg-white/8 px-3 text-sm font-bold text-white outline-none">
       {options.map((item) => <option key={item} value={item}>{item}</option>)}
     </select>
   );
@@ -1788,7 +1793,7 @@ function Select({ value, onChange, options }: { value: string; onChange: (value:
 function buttonClass(kind: "primary" | "ghost" | "danger") {
   return cn(
     "inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-black transition",
-    kind === "primary" && "bg-[#06B6D4] text-[#081421] hover:bg-cyan-300",
+    kind === "primary" && "bg-white text-slate-950 shadow-[0_0_18px_rgba(255,255,255,0.2)] hover:bg-white/88",
     kind === "ghost" && "border border-white/12 bg-white/6 text-white hover:bg-white/10",
     kind === "danger" && "border border-red-300/35 bg-red-300/10 text-red-100 hover:bg-red-300/16",
   );
@@ -1796,20 +1801,20 @@ function buttonClass(kind: "primary" | "ghost" | "danger") {
 
 function toneText(tone: "green" | "cyan" | "red" | "violet" | "amber") {
   return {
-    green: "text-emerald-300",
-    cyan: "text-cyan-200",
-    red: "text-red-300",
-    violet: "text-violet-300",
-    amber: "text-amber-200",
+    green: "text-[#8fcc96]",
+    cyan: "text-[#9ec8e8]",
+    red: "text-[#f0a882]",
+    violet: "text-[#c4aee0]",
+    amber: "text-[#e8d07a]",
   }[tone];
 }
 
 function toneBg(tone: "green" | "cyan" | "red" | "violet" | "amber") {
   return {
-    green: "bg-emerald-300/12 text-emerald-200",
-    cyan: "bg-cyan-300/12 text-cyan-100",
-    red: "bg-red-300/12 text-red-100",
-    violet: "bg-violet-300/12 text-violet-100",
-    amber: "bg-amber-300/12 text-amber-100",
+    green: "bg-[#B8D8BA]/25 text-[#8fcc96]",
+    cyan: "bg-[#AFC8E4]/25 text-[#9ec8e8]",
+    red: "bg-[#F2C4A0]/25 text-[#f0a882]",
+    violet: "bg-[#C9B8D8]/25 text-[#c4aee0]",
+    amber: "bg-[#F5E2A8]/25 text-[#e8d07a]",
   }[tone];
 }
