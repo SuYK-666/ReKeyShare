@@ -22,6 +22,7 @@ export type RequestContext = {
   tenantId: string;
   role: string;
   idempotencyKey?: string;
+  token?: string;
 };
 
 export async function rekeyshareRequest<T>(
@@ -32,15 +33,19 @@ export async function rekeyshareRequest<T>(
 ): Promise<ClientResult<T>> {
   const requestId = crypto.randomUUID();
   const startedAt = performance.now();
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "x-request-id": requestId,
+    "x-tenant-id": context.tenantId,
+    "x-role": context.role,
+    "x-idempotency-key": context.idempotencyKey ?? crypto.randomUUID(),
+  };
+  if (context.token) {
+    headers.authorization = `Bearer ${context.token}`;
+  }
   const response = await fetch(`/api/rekeyshare${route}`, {
     method,
-    headers: {
-      "content-type": "application/json",
-      "x-request-id": requestId,
-      "x-tenant-id": context.tenantId,
-      "x-role": context.role,
-      "x-idempotency-key": context.idempotencyKey ?? crypto.randomUUID(),
-    },
+    headers,
     body: method === "GET" ? undefined : JSON.stringify(body),
     cache: "no-store",
   });

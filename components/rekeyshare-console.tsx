@@ -32,6 +32,7 @@ import VideoBackdrop from "@/components/ui/video-backdrop";
 import { MechanismGraphs } from "@/components/console/mechanism-graphs";
 import { discoverCapabilities, type CapabilitySummary } from "@/lib/api/capabilities";
 import type { ApiTrace } from "@/lib/api/traces";
+import { getDemoActors } from "@/lib/demo/bootstrap";
 import { demoSteps, type RunnerMode } from "@/lib/demo/scenario-runner";
 import { glossaryTerms } from "@/lib/security/glossary";
 import { cn } from "@/lib/utils";
@@ -156,6 +157,12 @@ function toBase64(bytes: ArrayBuffer | Uint8Array) {
 
 function shortHash(value: string) {
   return `${value.slice(0, 12)}...${value.slice(-8)}`;
+}
+
+function randomBase64(length: number) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return toBase64(bytes);
 }
 
 const crcTable = Array.from({ length: 256 }, (_, index) => {
@@ -771,18 +778,28 @@ function UploadWizard({ setSelectedTrace }: { setSelectedTrace: (trace: ApiTrace
     };
     let finalTrace = trace;
     try {
+      const { actors } = await getDemoActors();
+      const runId = crypto.randomUUID().slice(0, 8);
       const backend = await rekeyshareRequest<Record<string, unknown>>(
         "POST",
         "/api/data/upload-encrypted",
         {
-          dataId: aad.dataId,
-          ciphertext: `b64:${shortHash(toBase64(ciphertext))}`,
-          ciphertextSize: ciphertext.byteLength,
-          nonce: manifest.nonce,
-          aad,
-          manifest: { ...manifest, manifestHash },
+          dataId: `${aad.dataId}_${runId}`,
+          encryptedContent: toBase64(ciphertext),
+          contentNonce: toBase64(nonceBytes),
+          capsuleHeader: randomBase64(256),
+          wrappedKey: randomBase64(32),
+          keyNonce: randomBase64(12),
+          fileName: selectedFile?.name ?? "salary.xlsx",
+          contentType: selectedFile?.type || "application/octet-stream",
+          originalSize: sample.byteLength,
         },
-        { tenantId: aad.tenantId, role: "Owner", idempotencyKey: "upload_webcrypto_sample" },
+        {
+          tenantId: aad.tenantId,
+          role: actors.owner.role,
+          idempotencyKey: `upload_webcrypto_${runId}`,
+          token: actors.owner.token,
+        },
       );
       if (!backend.ok) {
         throw new Error(`upload failed with status ${backend.status}`);
