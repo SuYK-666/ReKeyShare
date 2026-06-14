@@ -1,5 +1,6 @@
 import { rekeyshareRequest } from "@/lib/api/openapi-client";
 import type { ApiTrace } from "@/lib/api/traces";
+import { getDemoActors, resetDemoActors, type DemoActor } from "@/lib/demo/bootstrap";
 
 export type RunnerMode = "backend" | "mock";
 
@@ -18,53 +19,243 @@ export const demoSteps = [
   "攻击实验与 CI 证据总结",
 ];
 
-export const scenarioRequests = [
-  { method: "POST", path: "/api/demo/init", request: { tenantId: "tenantA", roles: ["Owner", "Recipient", "Proxy", "Auditor"] } },
-  { method: "POST", path: "/api/demo/files/select", request: { fileName: "salary.xlsx", ownerId: "alice" } },
-  { method: "POST", path: "/api/data/upload-encrypted", request: { dataId: "data_salary_2026", ciphertext: "b64:8d12...9fa0", aadHash: "sha256:32ca...7d11", manifestHash: "sha256:8cc3...e91a" } },
-  { method: "POST", path: "/api/grants", request: { dataId: "data_salary_2026", recipientId: "bob", actions: ["read", "download", "verify"], idempotencyKey: "idem_grant_20260528_001" } },
-  { method: "GET", path: "/api/proxies/proxy-east-01", request: { proxyId: "proxy-east-01" } },
-  { method: "POST", path: "/api/proxy/transform", request: { grantId: "grant_bob_q2", proxyId: "proxy-east-01", policyHash: "sha256:9a3d...4b19" } },
-  { method: "GET", path: "/api/shared-packages/pkg_2026_05_28_001", request: { packageId: "pkg_2026_05_28_001" } },
-  { method: "POST", path: "/api/shared-packages/pkg_2026_05_28_001/verify", request: { packageId: "pkg_2026_05_28_001", aadHash: "sha256:32ca...7d11" } },
-  { method: "GET", path: "/api/audit/verify", request: { tenantId: "tenantA", checkpoint: "latest" } },
-  { method: "POST", path: "/api/grants/grant_bob_q2/revoke", request: { grantId: "grant_bob_q2", reason: "owner revoke" } },
-  { method: "GET", path: "/api/shared-packages/pkg_2026_05_28_001", request: { packageId: "pkg_2026_05_28_001", expect: "denied-after-revoke" } },
-  { method: "GET", path: "/api/evidence/summary", request: { include: ["attack-matrix", "ci", "audit"] } },
-] satisfies Array<{ method: string; path: string; request: Record<string, unknown> }>;
+type RunState = {
+  runNonce: string;
+  dataId: string;
+  grantId: string;
+  packageId: string;
+  certificateFingerprint: string;
+};
 
-export async function runScenarioStep(index: number, mode: RunnerMode): Promise<ApiTrace> {
-  const scenario = scenarioRequests[index];
-  if (mode === "mock" || scenario.path.startsWith("/api/demo/")) {
-    return mockScenarioTrace(index);
-  }
-  const result = await rekeyshareRequest<Record<string, unknown>>(
-    scenario.method as "GET" | "POST",
-    scenario.path,
-    scenario.request,
-    {
-      tenantId: "tenantA",
-      role: "Owner",
-      idempotencyKey: typeof scenario.request.idempotencyKey === "string" ? scenario.request.idempotencyKey : `idem_step_${index + 1}`,
-    },
-  );
+function freshRunState(): RunState {
+  const runNonce = crypto.randomUUID().slice(0, 8);
+  return {
+    runNonce,
+    dataId: `data_salary_${runNonce}`,
+    grantId: "grant_bob_q2",
+    packageId: "pkg_2026_05_28_001",
+    certificateFingerprint: "cert_fp_proxy_east_01",
+  };
+}
+
+let runState: RunState = freshRunState();
+
+export function resetScenarioState() {
+  runState = freshRunState();
+  resetDemoActors();
+}
+
+function randomBase64(length: number): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+}
+
+function idem(index: number) {
+  return `idem_step_${index + 1}_${runState.runNonce}`;
+}
+
+async function call(
+  index: number,
+  method: "GET" | "POST",
+  path: string,
+  request: Record<string, unknown>,
+  actor: DemoActor,
+): Promise<ApiTrace> {
+  const result = await rekeyshareRequest<Record<string, unknown>>(method, path, request, {
+    tenantId: "tenantA",
+    role: actor.role,
+    idempotencyKey: idem(index),
+    token: actor.token,
+  });
   return { ...result.trace, traceId: `trace-step-${index + 1}`, stepId: `step-${index + 1}` };
 }
 
+export async function runScenarioStep(index: number, mode: RunnerMode): Promise<ApiTrace> {
+  if (mode === "mock") {
+    return mockScenarioTrace(index);
+  }
+
+  switch (index) {
+    case 0: {
+      const { trace } = await getDemoActors();
+      return trace;
+    }
+    case 1:
+      return mockScenarioTrace(index);
+    case 2: {
+      const { actors } = await getDemoActors();
+      const trace = await call(
+        index,
+        "POST",
+        "/api/data/upload-encrypted",
+        {
+          dataId: runState.dataId,
+          encryptedContent: randomBase64(48),
+          contentNonce: randomBase64(12),
+          capsuleHeader: randomBase64(256),
+          wrappedKey: randomBase64(32),
+          keyNonce: randomBase64(12),
+          fileName: "salary.xlsx",
+          contentType: "application/octet-stream",
+          originalSize: 2048,
+        },
+        actors.owner,
+      );
+      const response = trace.response as Record<string, unknown>;
+      if (typeof response.dataId === "string") {
+        runState.dataId = response.dataId;
+      }
+      return trace;
+    }
+    case 3: {
+      const { actors } = await getDemoActors();
+      const trace = await call(
+        index,
+        "POST",
+        "/api/grants",
+        {
+          dataId: runState.dataId,
+          recipientId: actors.recipient.userId,
+          allowedActions: "download,decrypt",
+          maxAccessCount: 5,
+          expiresInSeconds: 604800,
+          purpose: "demo-share",
+        },
+        actors.owner,
+      );
+      const response = trace.response as Record<string, unknown>;
+      if (typeof response.grantId === "string") {
+        runState.grantId = response.grantId;
+      }
+      return trace;
+    }
+    case 4: {
+      const { actors } = await getDemoActors();
+      return call(
+        index,
+        "POST",
+        "/api/proxy-nodes",
+        {
+          proxyId: actors.proxy.userId,
+          certificateFingerprint: runState.certificateFingerprint,
+          allowedTenantIds: "*",
+          allowedSchemeIds: "RSA_PRE",
+          quota: 1000,
+        },
+        actors.admin,
+      );
+    }
+    case 5: {
+      const { actors } = await getDemoActors();
+      const trace = await call(
+        index,
+        "POST",
+        "/api/proxy/re-encrypt",
+        {
+          grantId: runState.grantId,
+          certificateFingerprint: runState.certificateFingerprint,
+        },
+        actors.proxy,
+      );
+      const response = trace.response as Record<string, unknown>;
+      if (typeof response.packageId === "string") {
+        runState.packageId = response.packageId;
+      }
+      return trace;
+    }
+    case 6: {
+      const { actors } = await getDemoActors();
+      return call(
+        index,
+        "GET",
+        `/api/shared-packages/${runState.packageId}`,
+        { packageId: runState.packageId },
+        actors.recipient,
+      );
+    }
+    case 7:
+      return mockScenarioTrace(index);
+    case 8: {
+      const { actors } = await getDemoActors();
+      return call(index, "GET", "/api/audit/verify", { tenantId: "tenantA", checkpoint: "latest" }, actors.admin);
+    }
+    case 9: {
+      const { actors } = await getDemoActors();
+      return call(
+        index,
+        "POST",
+        `/api/grants/${runState.grantId}/revoke`,
+        { grantId: runState.grantId, reason: "owner revoke" },
+        actors.owner,
+      );
+    }
+    case 10: {
+      const { actors } = await getDemoActors();
+      return call(
+        index,
+        "GET",
+        `/api/shared-packages/${runState.packageId}`,
+        { packageId: runState.packageId, expect: "denied-after-revoke" },
+        actors.recipient,
+      );
+    }
+    case 11: {
+      const { actors } = await getDemoActors();
+      return call(index, "GET", "/api/benchmark/summary", { include: ["attack-matrix", "ci", "audit"] }, actors.admin);
+    }
+    default:
+      return mockScenarioTrace(index);
+  }
+}
+
+const mockPaths = [
+  "/api/demo/init",
+  "/api/demo/files/select",
+  "/api/data/upload-encrypted",
+  "/api/grants",
+  "/api/proxy-nodes",
+  "/api/proxy/re-encrypt",
+  "/api/shared-packages/pkg_2026_05_28_001",
+  "/api/demo/local-verify",
+  "/api/audit/verify",
+  "/api/grants/grant_bob_q2/revoke",
+  "/api/shared-packages/pkg_2026_05_28_001",
+  "/api/benchmark/summary",
+];
+
+const mockMethods: Array<"GET" | "POST"> = [
+  "POST",
+  "POST",
+  "POST",
+  "POST",
+  "POST",
+  "POST",
+  "GET",
+  "POST",
+  "GET",
+  "POST",
+  "GET",
+  "GET",
+];
+
 export function mockScenarioTrace(index: number): ApiTrace {
-  const scenario = scenarioRequests[index];
   const deniedOldPackage = index === 10;
   return {
     traceId: `trace-step-${index + 1}-mock`,
     stepId: `step-${index + 1}`,
-    method: scenario.method,
-    path: scenario.path,
+    method: mockMethods[index],
+    path: mockPaths[index],
     status: deniedOldPackage ? 403 : 200,
     durationMs: 18 + index * 3,
     requestId: `mock_req_${index + 1}`,
     auditEventId: `mock_audit_${index + 1}`,
     source: "mock",
-    request: scenario.request,
+    request: { step: index + 1 },
     response: deniedOldPackage
       ? { externalCode: "ACCESS_DENIED", internalReason: "GRANT_REVOKED", packageId: "pkg_2026_05_28_001" }
       : { ok: true, dataId: "data_salary_2026", grantId: "grant_bob_q2", packageId: "pkg_2026_05_28_001" },

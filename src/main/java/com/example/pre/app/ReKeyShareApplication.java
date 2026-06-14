@@ -401,7 +401,7 @@ public final class ReKeyShareApplication {
 		String policyHash = body.getOrDefault("policyHash", "OWNER_UPLOAD");
 		CapsuleContext context = new CapsuleContext(dataId, owner.userId(), owner.userId(), requested, ownerKeyId,
 				contentKeyVersion, policyHash, security.tenantId(), body.getOrDefault("grantId", "OWNER_UPLOAD"),
-				descriptorFor(requested).schemeId(), body.getOrDefault("proofIssuerId", ""),
+				requested.name(), body.getOrDefault("proofIssuerId", ""),
 				body.getOrDefault("operation", "OWNER_UPLOAD"));
 		byte[] aad = body.containsKey("aad")
 				? b64decode(body.get("aad"))

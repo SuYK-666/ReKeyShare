@@ -42,7 +42,8 @@ public final class DataSecurityService {
 		byte[] dataKey = SecureRandomUtil.randomBytes(AesGcm.KEY_BYTES);
 		String ownerKeyId = "demo-key-" + owner.userId();
 		String policyHash = "OWNER_UPLOAD";
-		CapsuleContext capsuleContext = capsuleContext(dataId, owner.userId(), algorithm(), ownerKeyId, 1, policyHash);
+		CapsuleContext capsuleContext = new CapsuleContext(dataId, owner.userId(), owner.userId(), algorithm(),
+				ownerKeyId, 1, policyHash, "default", "OWNER_UPLOAD", algorithm().name(), "", "OWNER_UPLOAD");
 		byte[] aad = AadBuilder.build(capsuleContext);
 		AesGcm.CipherText content = AesGcm.encrypt(dataKey, plaintext, aad);
 		EncryptedKeyCapsule capsule = scheme.encapsulate(dataKey, owner.keyPair().publicKey(), capsuleContext);
@@ -132,23 +133,22 @@ public final class DataSecurityService {
 	}
 
 	public static CapsuleContext capsuleContext(EncryptedDataPackage dataPackage) {
-		return capsuleContext(dataPackage.dataId(), dataPackage.ownerId(), dataPackage.algorithm(),
-				dataPackage.ownerKeyId(), dataPackage.contentKeyVersion(), dataPackage.policyHash());
+		return new CapsuleContext(dataPackage.dataId(), dataPackage.ownerId(), dataPackage.ownerId(),
+				dataPackage.algorithm(), dataPackage.ownerKeyId(), dataPackage.contentKeyVersion(),
+				dataPackage.policyHash(), "default", "OWNER_UPLOAD", dataPackage.algorithm().name(), "",
+				"OWNER_UPLOAD");
 	}
 
 	public static CapsuleContext capsuleContext(ReEncryptedPackage dataPackage) {
-		return capsuleContext(dataPackage.dataId(), dataPackage.ownerId(), dataPackage.algorithm(),
-				dataPackage.ownerKeyId(), dataPackage.contentKeyVersion(), dataPackage.policyHash());
+		return new CapsuleContext(dataPackage.dataId(), dataPackage.ownerId(), dataPackage.ownerId(),
+				dataPackage.algorithm(), dataPackage.ownerKeyId(), dataPackage.contentKeyVersion(),
+				dataPackage.policyHash(), "default", "OWNER_UPLOAD", dataPackage.algorithm().name(), "",
+				"OWNER_UPLOAD");
 	}
 
 	public static CapsuleContext grantContext(EncryptedDataPackage dataPackage, ShareGrant grant) {
 		return new CapsuleContext(dataPackage.dataId(), dataPackage.ownerId(), grant.recipientId(),
 				dataPackage.algorithm(), dataPackage.ownerKeyId(), dataPackage.contentKeyVersion(), grant.policyHash(),
 				dataPackage.tenantId(), grant.grantId(), dataPackage.algorithm().name(), "proxy", "RE_ENCRYPT");
-	}
-
-	private static CapsuleContext capsuleContext(String dataId, String ownerId, AlgorithmType algorithm,
-			String ownerKeyId, int contentKeyVersion, String policyHash) {
-		return new CapsuleContext(dataId, ownerId, ownerId, algorithm, ownerKeyId, contentKeyVersion, policyHash);
 	}
 }

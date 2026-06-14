@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { ApiTrace } from "@/lib/api/traces";
-import { demoSteps, runScenarioStep, type RunnerMode } from "@/lib/demo/scenario-runner";
+import { demoSteps, resetScenarioState, runScenarioStep, type RunnerMode } from "@/lib/demo/scenario-runner";
 
 export type StepStatus = "idle" | "running" | "success" | "error";
 
@@ -41,6 +41,7 @@ export function useDemoRun(initialTrace: ApiTrace) {
   }
 
   async function runAll() {
+    resetScenarioState();
     for (let index = 0; index < demoSteps.length; index += 1) {
       await runStep(index);
       await new Promise((resolve) => window.setTimeout(resolve, 120));
