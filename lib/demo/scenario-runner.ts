@@ -56,7 +56,7 @@ function randomBase64(length: number): string {
 }
 
 function idem(index: number) {
-  return `idem_step_${index + 1}_${runState.runNonce}`;
+  return `idem_step_${index + 1}_${runState.runNonce}_${crypto.randomUUID().slice(0, 8)}`;
 }
 
 async function call(
@@ -66,12 +66,23 @@ async function call(
   request: Record<string, unknown>,
   actor: DemoActor,
 ): Promise<ApiTrace> {
-  const result = await rekeyshareRequest<Record<string, unknown>>(method, path, request, {
+  let result = await rekeyshareRequest<Record<string, unknown>>(method, path, request, {
     tenantId: "tenantA",
     role: actor.role,
     idempotencyKey: idem(index),
     token: actor.token,
   });
+  if (result.trace.status === 401) {
+    resetDemoActors();
+    const { actors } = await getDemoActors();
+    const refreshedActor = actors[actor.key];
+    result = await rekeyshareRequest<Record<string, unknown>>(method, path, request, {
+      tenantId: "tenantA",
+      role: refreshedActor.role,
+      idempotencyKey: idem(index),
+      token: refreshedActor.token,
+    });
+  }
   return { ...result.trace, traceId: `trace-step-${index + 1}`, stepId: `step-${index + 1}` };
 }
 

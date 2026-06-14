@@ -4,6 +4,7 @@ import type { ApiTrace } from "@/lib/api/traces";
 export type DemoActorKey = "admin" | "owner" | "recipient" | "proxy";
 
 export type DemoActor = {
+  key: DemoActorKey;
   userId: string;
   role: string;
   token: string;
@@ -53,7 +54,7 @@ async function bootstrapActors(): Promise<{ actors: DemoActors; trace: ApiTrace 
       { userId: def.userId, role: def.role },
       { tenantId: "tenantA", role: def.role },
     );
-    created[def.key] = { userId: def.userId, role: def.role, token: result.data.token };
+    created[def.key] = { key: def.key, userId: def.userId, role: def.role, token: result.data.token };
     lastTrace = result.trace;
   }
   const actors = created as DemoActors;
