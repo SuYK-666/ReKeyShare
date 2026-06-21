@@ -63,13 +63,13 @@ test("home and console open", async ({ page }) => {
   await page.goto(baseUrl);
   await expect(page.getByText("ReKeyShare").first()).toBeVisible();
   await page.goto(`${baseUrl}/console`);
-  await expect(page.getByText("运行驾驶舱")).toBeVisible();
+  await expect(page.getByRole("button", { name: "运行驾驶舱" })).toBeVisible();
 });
 
 test("key console views do not crash", async ({ page }) => {
   for (const view of ["demo", "upload", "proxy", "packages", "attack", "settings"]) {
     await page.goto(`${baseUrl}/console?view=${view}`);
-    await expect(page.getByText(/online|mock/)).toBeVisible();
+    await expect(page.locator("span").filter({ hasText: /^(online|mock)$/ })).toBeVisible();
   }
 });
 
@@ -81,7 +81,7 @@ test("primary console controls update visible state", async ({ page }) => {
 
 test("backend offline is explicitly marked", async ({ page }) => {
   await page.goto(`${baseUrl}/console`);
-  await expect(page.getByText(/online|mock/)).toBeVisible();
+  await expect(page.locator("span").filter({ hasText: /^(online|mock)$/ })).toBeVisible();
 });
 
 test("console navigation syncs URL", async ({ page }) => {
