@@ -180,19 +180,23 @@ export default function ReKeyShareConsole() {
 
         <section className="min-w-0 lg:h-screen lg:overflow-y-auto">
           <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-white/10 bg-[#07111c]/60 px-4 py-3 backdrop-blur-xl lg:px-6">
-            <h1 className="text-lg font-black text-white">{active.label}</h1>
+            <Link href="/" className="text-lg font-black text-white hover:text-white/80 transition">{active.label}</Link>
             <div className="flex items-center gap-2">
               <Select value={runnerMode} onChange={(v) => setRunnerMode(v as RunnerMode)} options={["backend", "mock"]} />
               <Badge tone={capabilities?.online ? "green" : "amber"}>{capabilities?.online ? "online" : "mock"}</Badge>
             </div>
           </header>
           <div className="space-y-5 p-4 lg:p-6">
-            {view === "demo" && <DemoDashboard statuses={stepStatuses} completed={completed} runnerMode={runnerMode} runStep={runStep} runAll={runAll} />}
-            {view === "upload" && <UploadWizard />}
-            {view === "proxy" && <ProxyGovernance />}
-            {view === "packages" && <SharedPackages />}
-            {view === "attack" && <AttackLab />}
-            {view === "settings" && <SettingsPanel profile={profile} setProfile={setProfile} capabilities={capabilities} />}
+            {(() => {
+              switch (view) {
+                case "demo": return <DemoDashboard statuses={stepStatuses} completed={completed} runnerMode={runnerMode} runStep={runStep} runAll={runAll} />;
+                case "upload": return <UploadWizard />;
+                case "proxy": return <ProxyGovernance />;
+                case "packages": return <SharedPackages />;
+                case "attack": return <AttackLab />;
+                case "settings": return <SettingsPanel profile={profile} setProfile={setProfile} capabilities={capabilities} />;
+              }
+            })()}
           </div>
         </section>
       </div>
