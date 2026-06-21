@@ -150,8 +150,8 @@ export default function ReKeyShareConsole() {
     <main className="relative min-h-screen bg-[#081421] text-[#E5E7EB]">
       <VideoBackdrop fixed overlayClassName="bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_30%),linear-gradient(180deg,rgba(5,17,30,0.5),rgba(5,17,30,0.82))]" />
       <FlowLines />
-      <div className="relative z-10 grid min-h-screen lg:grid-cols-[220px_1fr]">
-        <aside className="border-r border-white/10 bg-[#0b1929]/80 backdrop-blur-xl lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
+      <div className="relative z-10 grid min-h-screen grid-cols-[220px_1fr]">
+        <aside className="flex h-screen flex-col overflow-hidden border-r border-white/10 bg-[#0b1929]/80 backdrop-blur-xl">
           <div className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-4">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-sm font-black text-slate-950">RK</div>
             <Link href="/" className="font-display text-base font-black text-white">ReKeyShare</Link>
@@ -178,7 +178,7 @@ export default function ReKeyShareConsole() {
           </nav>
         </aside>
 
-        <section className="min-w-0 lg:h-screen lg:overflow-y-auto">
+        <section className="min-w-0 h-screen overflow-y-auto">
           <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-white/10 bg-[#07111c]/60 px-4 py-3 backdrop-blur-xl lg:px-6">
             <Link href="/" className="text-lg font-black text-white hover:text-white/80 transition">{active.label}</Link>
             <div className="flex items-center gap-2">
